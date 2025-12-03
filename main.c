@@ -7,7 +7,7 @@
 #include <locale.h>
 #include <wchar.h>
 
-#define HAUTEUR 30
+#define HAUTEUR 40
 #define LARGEUR 255
 #define MAX_VEHICULES 10
 
@@ -27,7 +27,7 @@ struct voiture {
 };
 
 // Variables globales
-char plan[HAUTEUR][LARGEUR];
+wchar_t plan[HAUTEUR][LARGEUR];
 VEHICULE vehicules[MAX_VEHICULES];
 int nb_vehicules = 0;
 VEHICULE joueur;
@@ -119,8 +119,13 @@ void charger_plan(const char* fichier) {
             x = 0;
             y++;
         } else if (x < LARGEUR - 1) {
-            plan[y][x++] = wc;
+            plan[y][x++] = (wchar_t)wc;
         }
+    }
+
+    // Si le fichier ne finit pas par un '\n'
+    if (y < HAUTEUR) {
+        plan[y][x] = L'\0';
     }
 
     fclose(f);
@@ -169,7 +174,12 @@ int collision_voiture(int cx, int cy) {
             if (wc == L'─' || wc == L'┐'
              || wc == L'┌' || wc == L'│'
              || wc == L'├' || wc == L'┤'
-             || wc == L'└' || wc == L'┘') {
+             || wc == L'└' || wc == L'┘'
+             || wc == L'║' || wc == L'═'
+             || wc == L'╗' || wc == L'╔'
+             || wc == L'╚' || wc == L'╝'
+             || wc == L'├' || wc == L'╝')
+                {
                 return 1;
              }
         }
@@ -182,7 +192,7 @@ int collision_voiture(int cx, int cy) {
 void afficher_plan() {
     goto_xy(0, 0);
     for (int i = 0; i < HAUTEUR; i++) {
-        printf("%s\n", plan[i]);
+        wprintf(L"%ls\n", plan[i]);
     }
 }
 
@@ -207,6 +217,8 @@ void deplacer_joueur(char direction) {
     int new_x = joueur.posx;
     int new_y = joueur.posy;
 
+    char ancienneDirectionn = joueur.direction;
+
     switch(direction) {
         case 'z': new_y--; joueur.direction = 'N'; break;
         case 's': new_y++; joueur.direction = 'S'; break;
@@ -215,9 +227,22 @@ void deplacer_joueur(char direction) {
     }
 
     // new_x/new_y = centre de la voiture
-    if (!collision_voiture(new_x, new_y)) {
+    if (!collision_voiture(new_x, new_y))
+    {
         joueur.posx = new_x;
         joueur.posy = new_y;
+
+        if (ancienneDirectionn != direction)
+        {
+            if (joueur.direction == 'E')
+                charger_vehicule(&joueur, "voiture_D.txt", 'v');
+            else if (joueur.direction == 'N')
+                charger_vehicule(&joueur, "voiture_Z.txt", 'v');
+            else if (joueur.direction == 'S')
+                charger_vehicule(&joueur, "voiture_Z.txt", 'v');
+            else
+                charger_vehicule(&joueur, "voiture_D.txt", 'v');
+        }
     }
 }
 
@@ -262,6 +287,10 @@ void afficher_fichier(const char* fichier, enum COLOR color) {
 }
 
 int main() {
+
+    //l’Unicode (wchar_t)
+    setlocale(LC_ALL, "");
+
     // Initialisation
     printf("Chargement du parking...\n");
 
@@ -269,13 +298,10 @@ int main() {
     charger_plan("parking.txt");
 
     // Initialiser le joueur
-    charger_vehicule(&joueur, "voiture.txt", 'v');
-    joueur.posx = 80;
-    joueur.posy = 25;
+    charger_vehicule(&joueur, "voiture_Z.txt", 'v');
+    joueur.posx = 74;
+    joueur.posy = 36;
     joueur.code_couleur = 31; // Rouge
-
-    /* Important pour l’Unicode (wchar_t) */
-    setlocale(LC_ALL, "");
 
     printf("★ Bienvenue cher joueur ! ★\n");
     afficher_fichier("logo.txt", RED);
