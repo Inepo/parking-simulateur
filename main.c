@@ -6,6 +6,7 @@
 #include <fcntl.h>
 #include <locale.h>
 #include <wchar.h>
+#include <ncurses.h>//pour l'affichage
 
 #define HAUTEUR 40
 #define LARGEUR 255
@@ -54,7 +55,20 @@ void setColor(enum COLOR color)
     }
 }
 
+void lancer_musique() {
+    system("play -q musique.wav repeat - &");
+}
 
+int est_mur(wchar_t wc)
+{
+    return (wc == L'─' || wc == L'┐'
+         || wc == L'┌' || wc == L'│'
+         || wc == L'├' || wc == L'┤'
+         || wc == L'└' || wc == L'┘'
+         || wc == L'║' || wc == L'═'
+         || wc == L'╗' || wc == L'╔'
+         || wc == L'╚' || wc == L'╝');
+}
 
 
 // Fonction de détection de touche non-bloquante -> recuperer dans l'enonce
@@ -83,14 +97,6 @@ char key_pressed() {
     return result;
 }
 
-
-// Effacer l'écran et positionner le curseur
-void clear_screen() {
-    printf("\033[2J");      // Efface l'écran
-    printf("\033[H");       // Curseur en haut à gauche
-}
-
-
 // deplacer le curseur à la position x et y
 // %d;%dH -> place le curseur à la ligne %d et à la colonne %d
 void goto_xy(int x, int y) {
@@ -99,7 +105,7 @@ void goto_xy(int x, int y) {
 
 
 // Charger le plan depuis un fichier
-void charger_plan(const char* fichier) {
+void charger_parking(const char* fichier) {
     FILE *f = fopen(fichier, "r");
 
     if (!f) {
@@ -164,52 +170,58 @@ int collision_voiture(int cx, int cy) {
     int x = cx - 1; // coin haut-gauche
     int y = cy - 1;
 
-    // bornes pour le carré [x..x+2], [y..y+2]
     if (x < 0 || x + 2 >= LARGEUR || y < 0 || y + 2 >= HAUTEUR) return 1;
 
-    for (int i = 0; i < 3; i++) {
-        for (int j = 0; j < 3; j++) {
+    for (int i = 0; i < 3; i++)
+    {
+        for (int j = 0; j < 3; j++)
+        {
             wint_t wc = plan[y + i][x + j];
 
-            if (wc == L'─' || wc == L'┐'
-             || wc == L'┌' || wc == L'│'
-             || wc == L'├' || wc == L'┤'
-             || wc == L'└' || wc == L'┘'
-             || wc == L'║' || wc == L'═'
-             || wc == L'╗' || wc == L'╔'
-             || wc == L'╚' || wc == L'╝'
-             || wc == L'├' || wc == L'╝')
-                {
-                return 1;
-             }
+            if (est_mur(wc)) return 1;
         }
     }
+
     return 0;
 }
 
-
 // Afficher le plan
-void afficher_plan() {
-    goto_xy(0, 0);
-    for (int i = 0; i < HAUTEUR; i++) {
-        wprintf(L"%ls\n", plan[i]);
+void afficher_parking()
+{
+    for (int y = 0; y < HAUTEUR; y++) {
+        for (int x = 0; x < LARGEUR && plan[y][x] != L'\0'; x++) {
+            wchar_t wc = plan[y][x];
+
+            if (est_mur(plan[y][x])) {
+                attron(COLOR_PAIR(1));
+            } else {
+                attron(COLOR_PAIR(2));
+            }
+
+            mvprintw(y, x, "%lc", wc);
+        }
     }
+
+    attroff(COLOR_PAIR(1));
+    attroff(COLOR_PAIR(2));
 }
 
 // Afficher un véhicule
-void afficher_vehicule(VEHICULE *v) {
+void afficher_vehicule(VEHICULE *v)
+{
     if (v->etat != '1') return;
 
     // Couleur selon le type
-    if (v->type == 'v') printf("\033[31m");      // Rouge pour voiture
+    if (v->type == 'v') attron(COLOR_PAIR(3)); // Rouge pour voiture
     else if (v->type == 'c') printf("\033[34m"); // Bleu pour camion
     else if (v->type == 'm') printf("\033[32m"); // Vert pour moto
 
     for (int i = 0; i < 4; i++) {
-        goto_xy(v->posx, v->posy + i);
-        printf("%s", v->Carrosserie[i]);
+        //goto_xy(v->posx, v->posy + i);
+        mvprintw(v->posy + i, v->posx, "%s", v->Carrosserie[i]);
     }
-    printf("\033[0m"); // Reset couleur
+
+    if (v->type == 'v') attroff(COLOR_PAIR(3));
 }
 
 // Déplacer le joueur
@@ -248,13 +260,17 @@ void deplacer_joueur(char direction) {
 
 
 // Affiche info position et déplacement
-void afficher_instructions() {
-    goto_xy(0, HAUTEUR + 2);
-    printf("ZQSD: Déplacer la voiture rouge");
-    goto_xy(0, HAUTEUR + 3);
-    printf("ESC: Quitter");
-    goto_xy(0, HAUTEUR + 4);
-    printf("Position: (%d,%d) Direction: %c", joueur.posx, joueur.posy, joueur.direction);
+void afficher_instructions()
+{
+    attron(COLOR_PAIR(2));
+    // sous le parking
+    int ligne = HAUTEUR + 1;
+
+    mvprintw(ligne,     0, "ZQSD: Deplacer la voiture rouge");
+    mvprintw(ligne + 1, 0, "ESC: Quitter");
+    mvprintw(ligne + 2, 0, "Position: (%d,%d)", joueur.posx, joueur.posy);
+
+    attroff(COLOR_PAIR(2));
 }
 
 void afficher_fichier(const char* fichier, enum COLOR color) {
@@ -272,15 +288,9 @@ void afficher_fichier(const char* fichier, enum COLOR color) {
     wint_t wc;
     while ((wc = fgetwc(f)) != WEOF)
     {
-        if (wc == L'─' || wc == L'┐' || wc == L'┌' || wc == L'│'
-         || wc == L'├' || wc == L'┤' || wc == L'└' || wc == L'┘') {
-            setColor(GREEN);
-            putwchar(wc);
-            setColor(color);
-         } else {
-             putwchar(wc);
-         }
+        putwchar(wc);
     }
+
     printf("\n");
     setColor(BLACK);
     fclose(f);
@@ -295,7 +305,7 @@ int main() {
     printf("Chargement du parking...\n");
 
     // Charger le plan
-    charger_plan("parking.txt");
+    charger_parking("parking.txt");
 
     // Initialiser le joueur
     charger_vehicule(&joueur, "voiture_Z.txt", 'v');
@@ -303,16 +313,14 @@ int main() {
     joueur.posy = 36;
     joueur.code_couleur = 31; // Rouge
 
-    printf("★ Bienvenue cher joueur ! ★\n");
     afficher_fichier("logo.txt", RED);
-    printf("\n★ Pret à commencer l'aventure ? Votre destin vous attend ! ★\n\n");
 
     printf("★ Regle du jeu ★\n");
     printf("Jeu permettant de simuler le stationnement de voitures dans un parking payant\n\n");
 
     printf("Pour commencer veuillez choisir votre mode de jeu :\n");
     printf("[1] Fluide : moins de vehicules seront generes et tout roule normalement\n");
-    printf("[2] Charge : plus de vehicules generes pouvant entrainer des bouchons ou meme des accidents dans le parking\n");
+    printf("[2] Charge : plus de vehicules generes pouvant entrainer des bouchons ou meme des accidents dans le parking\n\n");
 
 
     while (1) {
@@ -326,33 +334,47 @@ int main() {
             while ((c = getchar()) != '\n' && c != EOF) { }
             continue;
         }
+
         /* Purger le \n restant pour ne pas polluer le premier getchar() du jeu */
         int c;
         while ((c = getchar()) != '\n' && c != EOF) { }
 
         switch (mode) {
             case 1: {
+
                 // Boucle principale
                 char touche;
                 int running = 1;
 
+                initscr();
+                start_color();
+                use_default_colors();
+
+                // cyan
+                init_pair(1, COLOR_CYAN, -1);
+                // jaune
+                init_pair(2, COLOR_YELLOW, -1);
+                // rouge
+                init_pair(3, COLOR_RED, -1);
+
                 while (running) {
-                    // Effacer et redessiner
-                    clear_screen();
+                    // Effacer le contenue de l'ecran virtuel (fournit par ncurses)
+                    clear();
 
-                    // Afficher le plan
-                    afficher_plan();
+                    afficher_parking();
 
-                    // Afficher les véhicules
+
                     for (int i = 0; i < nb_vehicules; i++) {
                         afficher_vehicule(&vehicules[i]);
                     }
 
-                    // Afficher le joueur
+                    // Afficher le joueur principal
                     afficher_vehicule(&joueur);
 
-                    // Afficher les instructions
                     afficher_instructions();
+
+                    // Dessine le contenu tu terminal virtuel dans le vrais terminal (fournit par ncurses)
+                    refresh();
 
                     // Vérifier les touches
                     touche = key_pressed();
@@ -364,16 +386,18 @@ int main() {
                             case 'd':
                                 deplacer_joueur(touche);
                                 break;
-                            case 27: // ESC
+                            case 27: // touche échape
                                 running = 0;
                                 break;
                         }
                     }
 
+                    //pour eviter les scitillements
                     usleep(50000);
                 }
 
-                clear_screen();
+                //Ferme le mode ncurses pour remettre le terminal normalement
+                endwin();
                 printf("Merci d'avoir joué à Take IT !\n");
                 return 0;
             }
