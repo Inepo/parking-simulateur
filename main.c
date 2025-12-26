@@ -6,6 +6,7 @@
 #include <fcntl.h>
 #include <locale.h>
 #include <wchar.h>
+#include <time.h>
 #include <ncurses.h>//pour l'affichage
 
 #define HAUTEUR 50
@@ -16,6 +17,8 @@
 typedef struct voiture VEHICULE;
 struct voiture {
     char direction;      // N, S, E, O
+    char precedente_direction;
+    int count_meme_direction;
     int posx, posy;     // Position
     int vitesse;        // Vitesse
     char alignement;    // g ou d
@@ -24,6 +27,7 @@ struct voiture {
     int code_couleur;
     char etat;          // '1' actif, '0' inactif
     unsigned long int tps;
+    char mode;
     struct voiture * NXT;
 };
 
@@ -321,6 +325,130 @@ void deplacer_joueur(char direction) {
 }
 
 
+// Fonction utilitaire pour obtenir la direction opposée
+char get_direction_opposee(char direction) {
+    switch(direction) {
+        case 'N': return 'S';
+        case 'S': return 'N';
+        case 'E': return 'O';
+        case 'O': return 'E';
+        default: return direction;
+    }
+}
+
+void deplacer_joueur_auto() {
+    int new_x = joueur.posx;
+    int new_y = joueur.posy;
+
+    char ancienne_direction = joueur.direction;
+    char nouvelle_direction = ancienne_direction;
+
+    // Calculer direction opposée (pour éviter de faire demi-tour)
+    char dir_opposee;
+    switch(ancienne_direction) {
+        case 'N': dir_opposee = 'S'; break;
+        case 'S': dir_opposee = 'N'; break;
+        case 'E': dir_opposee = 'O'; break;
+        case 'O': dir_opposee = 'E'; break;
+        default: dir_opposee = ancienne_direction; break;
+    }
+
+    // Calculer la prochaine position selon la direction actuelle
+    switch(ancienne_direction) {
+        case 'N': new_y--; break;
+        case 'S': new_y++; break;
+        case 'O': new_x--; break;
+        case 'E': new_x++; break;
+    }
+
+    // Vérifier si on peut continuer tout droit
+    bool peut_continuer = !collision_voiture(new_x, new_y, ancienne_direction);
+    bool doit_changer = (joueur.count_meme_direction >= 5 || !peut_continuer);
+
+    if (doit_changer) {
+        // Réinitialiser
+        new_x = joueur.posx;
+        new_y = joueur.posy;
+        joueur.count_meme_direction = 0;
+
+        char directions[] = {'N', 'S', 'E', 'O'};
+        bool direction_trouvee = false;
+
+        // Mélanger les directions pour un comportement moins prévisible
+        for (int i = 3; i > 0; i--) {
+            int j = rand() % (i + 1);
+            char temp = directions[i];
+            directions[i] = directions[j];
+            directions[j] = temp;
+        }
+
+        // Phase 1 : Essayer toutes les directions SAUF l'opposée
+        for (int i = 0; i < 4 && !direction_trouvee; i++) {
+            char dir = directions[i];
+
+            // Ne jamais faire demi-tour
+            if (dir == dir_opposee) {
+                continue;
+            }
+
+            int test_x = joueur.posx;
+            int test_y = joueur.posy;
+
+            switch(dir) {
+                case 'N': test_y--; break;
+                case 'S': test_y++; break;
+                case 'O': test_x--; break;
+                case 'E': test_x++; break;
+            }
+
+            if (!collision_voiture(test_x, test_y, dir)) {
+                new_x = test_x;
+                new_y = test_y;
+                nouvelle_direction = dir;
+                direction_trouvee = true;
+            }
+        }
+
+        // Phase 2 : Si vraiment bloqué, essayer même la direction opposée
+        if (!direction_trouvee) {
+            int test_x = joueur.posx;
+            int test_y = joueur.posy;
+
+            switch(dir_opposee) {
+                case 'N': test_y--; break;
+                case 'S': test_y++; break;
+                case 'O': test_x--; break;
+                case 'E': test_x++; break;
+            }
+
+            if (!collision_voiture(test_x, test_y, dir_opposee)) {
+                new_x = test_x;
+                new_y = test_y;
+                nouvelle_direction = dir_opposee;
+            }
+            // Sinon, reste sur place (bloqué)
+        }
+
+        // Mettre à jour la direction précédente seulement quand on change
+        joueur.precedente_direction = ancienne_direction;
+    } else {
+        // Continue tout droit
+        joueur.count_meme_direction++;
+    }
+
+    joueur.posx = new_x;
+    joueur.posy = new_y;
+
+    if (ancienne_direction != nouvelle_direction) {
+        joueur.direction = nouvelle_direction;
+
+        if (nouvelle_direction == 'N' || nouvelle_direction == 'S')
+            charger_vehicule(&joueur, "voiture_Z.txt", 'v');
+        else
+            charger_vehicule(&joueur, "voiture_D.txt", 'v');
+    }
+}
+
 // Affiche info position et déplacement
 void afficher_instructions()
 {
@@ -331,6 +459,7 @@ void afficher_instructions()
     mvprintw(ligne,     0, "ZQSD: Deplacer la voiture rouge");
     mvprintw(ligne + 1, 0, "ESC: Quitter");
     mvprintw(ligne + 2, 0, "Position: (%d,%d)", joueur.posx, joueur.posy);
+    mvprintw(ligne + 3, 0, "Temps: %02lu:%02lu", joueur.tps / 60, joueur.tps % 60);
 
     attroff(COLOR_PAIR(2));
 }
@@ -372,11 +501,11 @@ int main() {
     charger_parking("parking.txt");
 
     // Initialiser le joueur
-    charger_vehicule(&joueur, "voiture_Z.txt", 'v');
-    joueur.posx = 74;
-    joueur.posy = 46;
+    charger_vehicule(&joueur, "voiture_D.txt", 'v');
+    joueur.posx = 90;
+    joueur.posy = 44;
     joueur.code_couleur = 31; // Rouge
-    joueur.direction = 'N';
+    joueur.direction = 'O';
 
     afficher_fichier("logo.txt", RED);
 
@@ -384,8 +513,9 @@ int main() {
     printf("Jeu permettant de simuler le stationnement de voitures dans un parking payant\n\n");
 
     printf("Pour commencer veuillez choisir votre mode de jeu :\n");
-    printf("[1] Sans collision\n");
-    printf("[2] Avec collision\n\n");
+    printf("[1] Sans collision - manuelle\n");
+    printf("[2] Avec collision - manuelle\n");
+    printf("[3] Auto\n\n");
 
 
     while (1) {
@@ -416,6 +546,10 @@ int main() {
                 start_color();
                 use_default_colors();
 
+                joueur.mode = 'M';
+                unsigned long int tps_debut = time(NULL);
+                joueur.tps = 0;
+
                 // cyan
                 init_pair(1, COLOR_CYAN, -1);
                 // jaune
@@ -426,6 +560,84 @@ int main() {
                 while (running) {
                     // Effacer le contenue de l'ecran virtuel (fournit par ncurses)
                     clear();
+
+                    joueur.tps = time(NULL) - tps_debut;
+
+                    afficher_parking();
+
+
+                    for (int i = 0; i < nb_vehicules; i++) {
+                        afficher_vehicule(&vehicules[i]);
+                    }
+
+                    // Afficher le joueur principal
+                    afficher_vehicule(&joueur);
+
+                    afficher_instructions();
+
+                    // Dessine le contenu tu terminal virtuel dans le vrais terminal (fournit par ncurses)
+                    refresh();
+
+                    // Vérifier les touches
+                    touche = key_pressed();
+                    if (touche != 0) {
+                        switch(touche) {
+                            case 'z':
+                            case 'q':
+                            case 's':
+                            case 'd':
+                                deplacer_joueur(touche);
+                                break;
+                            case 27: // touche échape
+                                running = 0;
+                                break;
+                        }
+                    }
+
+                    //pour eviter les scitillements
+                    usleep(50000);
+
+                    if (joueur.posx >= 80 && joueur.posy <= 9) {
+                        running = 0;
+                        break;
+                    }
+                }
+
+                //Ferme le mode ncurses pour remettre le terminal normalement
+                endwin();
+                unsigned long int prix = joueur.tps * 2;
+
+                printf("\n\nVous avez passé un temps totale de %02lu:%02lu\n", joueur.tps / 60, joueur.tps % 60);
+                printf("Vous devez régler %02lu,%02lu€\n", prix / 100, prix % 100);
+                printf("\n\nMerci d'avoir joué à Take IT !\n");
+                return 0;
+            }
+            case 2: {
+                // Boucle principale
+                char touche;
+                int running = 1;
+                avec_collision = 1;
+
+                initscr();
+                start_color();
+                use_default_colors();
+
+                unsigned long int tps_debut = time(NULL);
+                joueur.tps = 0;
+                joueur.mode = 'M';
+
+                // cyan
+                init_pair(1, COLOR_CYAN, -1);
+                // jaune
+                init_pair(2, COLOR_YELLOW, -1);
+                // rouge
+                init_pair(3, COLOR_RED, -1);
+
+                while (running) {
+                    // Effacer le contenue de l'ecran virtuel (fournit par ncurses)
+                    clear();
+
+                    joueur.tps = time(NULL) - tps_debut;
 
                     afficher_parking();
 
@@ -467,11 +679,16 @@ int main() {
                 printf("Merci d'avoir joué à Take IT !\n");
                 return 0;
             }
-            case 2: {
+
+            case 3: {
                 // Boucle principale
-                char touche;
                 int running = 1;
                 avec_collision = 1;
+                srand(time(NULL));
+
+                unsigned long int tps_debut = time(NULL);
+                joueur.tps = 0;
+                joueur.mode = 'A';
 
                 initscr();
                 start_color();
@@ -487,6 +704,8 @@ int main() {
                 while (running) {
                     // Effacer le contenue de l'ecran virtuel (fournit par ncurses)
                     clear();
+
+                    joueur.tps = time(NULL) - tps_debut;
 
                     afficher_parking();
 
@@ -504,28 +723,25 @@ int main() {
                     refresh();
 
                     // Vérifier les touches
-                    touche = key_pressed();
-                    if (touche != 0) {
-                        switch(touche) {
-                            case 'z':
-                            case 'q':
-                            case 's':
-                            case 'd':
-                                deplacer_joueur(touche);
-                                break;
-                            case 27: // touche échape
-                                running = 0;
-                                break;
-                        }
+                    deplacer_joueur_auto();
+
+                    if (joueur.posx >= 80 && joueur.posy <= 9) {
+                        running = 0;
+                        break;
                     }
 
                     //pour eviter les scitillements
-                    usleep(50000);
+                    usleep(100000);
                 }
 
                 //Ferme le mode ncurses pour remettre le terminal normalement
                 endwin();
-                printf("Merci d'avoir joué à Take IT !\n");
+                unsigned long int prix = joueur.tps * 2;
+
+                printf("\n\nVous avez passé un temps totale de %02lu:%02lu\n", joueur.tps / 60, joueur.tps % 60);
+                printf("Vous devez régler %02lu,%02lu€\n", prix / 100, prix % 100);
+                printf("\n\nMerci d'avoir joué à Take IT !\n");
+
                 return 0;
             }
 
