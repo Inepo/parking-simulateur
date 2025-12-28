@@ -11,7 +11,7 @@
 
 #define HAUTEUR 50
 #define LARGEUR 130
-#define MAX_VEHICULES 2
+#define MAX_VEHICULES 3
 
 typedef struct {
     int x;
@@ -41,6 +41,9 @@ struct voiture {
     int last_y;
     int phase_sortie;
     COORDONEE tab[4];
+    unsigned long start_time;  // timestamp de départ
+    int active;                // 0 = pas encore lancée, 1 = en cours
+
 };
 
 typedef struct {
@@ -57,6 +60,7 @@ int nb_vehicules = 0;
 VEHICULE joueur;
 int avec_collision = 0;
 int gain_total = 0;
+unsigned long int chronometre;
 
 
 /* ================== Couleurs ================== */
@@ -110,7 +114,7 @@ int est_place_parking(VEHICULE* joueur)
     }
 
     // Trouver le mur vertical (█)
-    for (int i = 0; i <= 5; i++) {
+    for (int i = 0; i <= 6; i++) {
         if (plan[y][x - i] == L'█') {
             x_mur = x - i;
             break;
@@ -354,11 +358,11 @@ void afficher_vehicule(VEHICULE *v)
 }
 
 // Déplacer le joueur
-void deplacer_joueur(char direction) {
-    int new_x = joueur.posx;
-    int new_y = joueur.posy;
+void deplacer_joueur(char direction, VEHICULE* vehicule) {
+    int new_x = vehicule->posx;
+    int new_y = vehicule->posy;
 
-    char ancienne_direction = joueur.direction;
+    char ancienne_direction = vehicule->direction;
     char nouvelle_direction;
 
     switch(direction) {
@@ -389,17 +393,17 @@ void deplacer_joueur(char direction) {
     }
 
     // Pas de collision (ou mode sans collision) : on peut déplacer
-    joueur.posx = new_x;
-    joueur.posy = new_y;
+    vehicule->posx = new_x;
+    vehicule->posy = new_y;
 
     // Changer la sprite si changement de direction
     if (ancienne_direction != nouvelle_direction) {
-        joueur.direction = nouvelle_direction;
+        vehicule->direction = nouvelle_direction;
 
         if (direction == 'z' || direction == 's')
-            charger_vehicule(&joueur, "voiture_Z.txt", 'v');
+            charger_vehicule(vehicule, "voiture_Z.txt", 'v');
         else // E ou O
-            charger_vehicule(&joueur, "voiture_D.txt", 'v');
+            charger_vehicule(vehicule, "voiture_D.txt", 'v');
     }
 }
 
@@ -641,13 +645,13 @@ void deplacer_joueur_auto2(VEHICULE* joueur) {
     }
 }
 
-void deplacer_joueur_vers_sortie(int cible_x, int cible_y)
+void deplacer_joueur_vers_sortie(int cible_x, int cible_y, VEHICULE* vehicule)
 {
-    int dx = cible_x - joueur.posx;
-    int dy = cible_y - joueur.posy;
+    int dx = cible_x - vehicule->posx;
+    int dy = cible_y - vehicule->posy;
 
-    char dir_opp = joueur.direction;
-    switch (joueur.direction) {
+    char dir_opp = vehicule->direction;
+    switch (vehicule->direction) {
         case 'N': dir_opp = 'S'; break;
         case 'S': dir_opp = 'N'; break;
         case 'E': dir_opp = 'O'; break;
@@ -669,8 +673,8 @@ void deplacer_joueur_vers_sortie(int cible_x, int cible_y)
         if (dx < 0) essais[k++] = 'O';
     }
 
-    int prev_x = joueur.last_x;
-    int prev_y = joueur.last_y;
+    int prev_x = vehicule->last_x;
+    int prev_y = vehicule->last_y;
 
     char all[4] = {'N','S','E','O'};
     for (int i = 0; i < 4; i++) {
@@ -686,7 +690,7 @@ void deplacer_joueur_vers_sortie(int cible_x, int cible_y)
         char d = essais[i];
         if (d == dir_opp) continue;
 
-        int nx = joueur.posx, ny = joueur.posy;
+        int nx = vehicule->posx, ny = vehicule->posy;
         if (d == 'N') ny--;
         if (d == 'S') ny++;
         if (d == 'E') nx++;
@@ -699,7 +703,7 @@ void deplacer_joueur_vers_sortie(int cible_x, int cible_y)
 
     // Phase 3 : si bloqué, autoriser demi-tour mais pas si c'est juste revenir en arrière
     if (choix == 0) {
-        int nx = joueur.posx, ny = joueur.posy;
+        int nx = vehicule->posx, ny = vehicule->posy;
         if (dir_opp == 'N') ny--;
         if (dir_opp == 'S') ny++;
         if (dir_opp == 'E') nx++;
@@ -710,24 +714,21 @@ void deplacer_joueur_vers_sortie(int cible_x, int cible_y)
         }
     }
 
-    //mvprintw(1, 2, "STATUT=%c POS=(%d,%d) dx=%d dy=%d choix=%c dir=%c",
-    //         joueur.statut, joueur.posx, joueur.posy, dx, dy, choix ? choix : '-', joueur.direction);
-
     if (choix != 0) {
         // ✅ mémoriser la position AVANT de bouger
-        joueur.last_x = joueur.posx;
-        joueur.last_y = joueur.posy;
+        vehicule->last_x = vehicule->posx;
+        vehicule->last_y = vehicule->posy;
 
-        joueur.direction = choix;
+        vehicule->direction = choix;
 
         char touche_direction = get_direction_normalise(choix);
 
         if (choix == 'N' || choix == 'S')
-            charger_vehicule(&joueur, "voiture_Z.txt", 'v');
+            charger_vehicule(vehicule, "voiture_Z.txt", 'v');
         else
-            charger_vehicule(&joueur, "voiture_D.txt", 'v');
+            charger_vehicule(vehicule, "voiture_D.txt", 'v');
 
-        deplacer_joueur(touche_direction);
+        deplacer_joueur(touche_direction, vehicule);
     }
 }
 
@@ -747,12 +748,14 @@ void afficher_instructions()
     // sous le parking
     int ligne = HAUTEUR + 1;
 
+    int temps = time(NULL) - chronometre;
+
     mvprintw(1,104, "Gain total : %d",gain_total);
 
     mvprintw(ligne,     0, "ZQSD: Deplacer la voiture rouge");
     mvprintw(ligne + 1, 0, "ESC: Quitter");
     mvprintw(ligne + 2, 0, "Position: (%d,%d)", joueur.posx, joueur.posy);
-    mvprintw(ligne + 3, 0, "Temps: %02lu:%02lu", joueur.tps / 60, joueur.tps % 60);
+    mvprintw(ligne + 3, 0, "Temps: %02lu:%02lu", temps / 60, temps % 60);
 
     attroff(COLOR_PAIR(2));
 }
@@ -843,7 +846,8 @@ int main() {
                 use_default_colors();
 
                 joueur.mode = 'M';
-                unsigned long int tps_debut = time(NULL);
+                joueur.statut = 'E';
+                chronometre = time(NULL);
                 joueur.tps = 0;
 
                 // cyan
@@ -860,26 +864,10 @@ int main() {
                 unsigned long int prix = 0;
 
                 while (running) {
-                    // Effacer le contenue de l'ecran virtuel (fournit par ncurses)
                     clear();
-
-                    joueur.tps = time(NULL) - tps_debut;
+                    joueur.tps = time(NULL) - chronometre;
 
                     afficher_parking();
-
-
-                    for (int i = 0; i < nb_vehicules; i++) {
-                        afficher_vehicule(&vehicules[i]);
-                    }
-
-                    // Afficher le joueur principal
-                    afficher_vehicule(&joueur);
-
-                    afficher_gain();
-                    afficher_instructions();
-
-                    // Dessine le contenu tu terminal virtuel dans le vrais terminal (fournit par ncurses)
-                    refresh();
 
                     // Vérifier les touches
                     touche = key_pressed();
@@ -889,15 +877,43 @@ int main() {
                             case 'q':
                             case 's':
                             case 'd':
-                                deplacer_joueur(touche);
+                                deplacer_joueur(touche, &joueur);
                                 break;
-                            case 27: // touche échape
+                            case 27:
                                 running = 0;
                                 break;
                         }
                     }
 
-                    //pour eviter les scitillements
+                    // VÉRIFIER ET CHANGER LE STATUT EN PREMIER
+                    if(est_place_parking(&joueur)) {
+                        joueur.statut = 'P';
+                        joueur.tps_stationnement = time(NULL);
+                    }
+
+                    if (joueur.statut == 'P') {
+                        if (!est_place_parking(&joueur))joueur.statut = 'E';
+                        else {
+                            COORDONEE coord;
+                            for (int i = 0; i < 4; ++i) {
+                                coord = joueur.tab[i];
+                                if (plan[coord.y][coord.x] == L'█') {
+                                    attron(COLOR_PAIR(3));
+                                    mvprintw(coord.y, coord.x, "%lc", plan[coord.y][coord.x]);
+                                    attroff(COLOR_PAIR(3));
+                                }
+                            }
+                        }
+                    }
+
+                    // Afficher le joueur
+                    afficher_vehicule(&joueur);
+
+                    afficher_gain();
+                    afficher_instructions();
+
+                    refresh();
+
                     usleep(50000);
 
                     if (joueur.posx >= 78 && joueur.posy <= 7) {
@@ -936,7 +952,7 @@ int main() {
                 start_color();
                 use_default_colors();
 
-                unsigned long int tps_debut = time(NULL);
+                chronometre = time(NULL);
                 joueur.tps = 0;
                 joueur.mode = 'M';
 
@@ -951,17 +967,51 @@ int main() {
                 //vert
                 init_pair(5, COLOR_GREEN, -1);
 
+                unsigned long int prix = 0;
+
                 while (running) {
                     // Effacer le contenue de l'ecran virtuel (fournit par ncurses)
                     clear();
 
-                    joueur.tps = time(NULL) - tps_debut;
+                    joueur.tps = time(NULL) - chronometre;
 
                     afficher_parking();
 
+                    // Vérifier les touches
+                    touche = key_pressed();
+                    if (touche != 0) {
+                        switch(touche) {
+                            case 'z':
+                            case 'q':
+                            case 's':
+                            case 'd':
+                                deplacer_joueur(touche, &joueur);
+                                break;
+                            case 27: // touche échape
+                                running = 0;
+                                break;
+                        }
+                    }
 
-                    for (int i = 0; i < nb_vehicules; i++) {
-                        afficher_vehicule(&vehicules[i]);
+                    // VÉRIFIER ET CHANGER LE STATUT EN PREMIER
+                    if(est_place_parking(&joueur)) {
+                        joueur.statut = 'P';
+                        joueur.tps_stationnement = time(NULL);
+                    }
+
+                    if (joueur.statut == 'P') {
+                        if (!est_place_parking(&joueur))joueur.statut = 'E';
+                        else {
+                            COORDONEE coord;
+                            for (int i = 0; i < 4; ++i) {
+                                coord = joueur.tab[i];
+                                if (plan[coord.y][coord.x] == L'█') {
+                                    attron(COLOR_PAIR(3));
+                                    mvprintw(coord.y, coord.x, "%lc", plan[coord.y][coord.x]);
+                                    attroff(COLOR_PAIR(3));
+                                }
+                            }
+                        }
                     }
 
                     // Afficher le joueur principal
@@ -973,20 +1023,9 @@ int main() {
                     // Dessine le contenu tu terminal virtuel dans le vrais terminal (fournit par ncurses)
                     refresh();
 
-                    // Vérifier les touches
-                    touche = key_pressed();
-                    if (touche != 0) {
-                        switch(touche) {
-                            case 'z':
-                            case 'q':
-                            case 's':
-                            case 'd':
-                                deplacer_joueur(touche);
-                                break;
-                            case 27: // touche échape
-                                running = 0;
-                                break;
-                        }
+                    if (joueur.posx >= 78 && joueur.posy <= 7) {
+                        prix = joueur.tps * 2;
+                        gain_total = gain_total + prix;
                     }
 
                     if (joueur.posx >= 80 && joueur.posy <= 7) {
@@ -1017,7 +1056,7 @@ int main() {
                 avec_collision = 1;
                 srand(time(NULL));
 
-                unsigned long int tps_debut = time(NULL);
+                chronometre = time(NULL);
                 joueur.tps = 0;
                 joueur.mode = 'A';
                 joueur.statut = 'E';
@@ -1045,15 +1084,9 @@ int main() {
                     // Effacer le contenue de l'ecran virtuel (fournit par ncurses)
                     clear();
 
-                    joueur.tps = time(NULL) - tps_debut;
+                    joueur.tps = time(NULL) - chronometre;
 
                     afficher_parking();
-
-
-                    for (int i = 0; i < nb_vehicules; i++) {
-                        afficher_vehicule(&vehicules[i]);
-                    }
-
 
                     // Vérifier les touches
                     if (joueur.statut == 'E') {
@@ -1071,7 +1104,7 @@ int main() {
                             if (d < bestD) { bestD = d; bestY = ys[i]; }
                         }
 
-                        deplacer_joueur_vers_sortie(47, bestY);
+                        deplacer_joueur_vers_sortie(47, bestY, &joueur);
 
                         if (abs(joueur.posx - 47) + abs(joueur.posy - bestY) <= 1)
                             joueur.phase_sortie = 1;
@@ -1079,14 +1112,14 @@ int main() {
 
                     // Phase 1 : monter sur la colonne x=45 vers y=16 (haut des rangées)
                     else if (joueur.phase_sortie == 1) {
-                        deplacer_joueur_vers_sortie(47, 8);
+                        deplacer_joueur_vers_sortie(47, 8, &joueur);
                         if (abs(joueur.posx - 47) + abs(joueur.posy - 8) <= 1)
                             joueur.phase_sortie = 2;
                     }
 
                     // Phase 2 : aller vers la sortie
                     else {
-                        deplacer_joueur_vers_sortie(80, 7);
+                        deplacer_joueur_vers_sortie(80, 7, &joueur);
                     }
                 }
 
@@ -1116,7 +1149,7 @@ int main() {
                         // petit recul pour sortir de la place (optionnel)
                         char dir_opp = (joueur.direction == 'O') ? 'E' : 'O';
                         char touche_direction = get_direction_normalise(dir_opp);
-                        deplacer_joueur(touche_direction);
+                        deplacer_joueur(touche_direction, &joueur);
 
                         joueur.last_x = joueur.posx;
                         joueur.last_y = joueur.posy;
@@ -1131,6 +1164,175 @@ int main() {
 
                     // Afficher le joueur principal
                     afficher_vehicule(&joueur);
+
+                    afficher_gain();
+                    afficher_instructions();
+
+                    // Dessine le contenu tu terminal virtuel dans le vrais terminal (fournit par ncurses)
+                    refresh();
+
+                    //pour eviter les scitillements
+                    usleep(100000);
+                }
+
+                //Ferme le mode ncurses pour remettre le terminal normalement
+                endwin();
+                unsigned long int prix = joueur.tps * 2;
+
+                printf("\n\nVous avez passé un temps totale de %02lu:%02lu\n", joueur.tps / 60, joueur.tps % 60);
+                printf("Vous devez régler %02lu,%02lu€\n", prix / 100, prix % 100);
+                printf("\n\nMerci d'avoir joué à Take IT !\n");
+
+                return 0;
+            }
+
+            case 4: {
+                // Boucle principale
+                int running = 1;
+                avec_collision = 1;
+                srand(time(NULL));
+
+                chronometre = time(NULL);
+
+                VEHICULE vehicule;
+
+                for (int i = 0; i < MAX_VEHICULES; ++i) {
+                    vehicule.tps = 0;
+                    vehicule.mode = 'A';
+                    vehicule.statut = 'E';
+                    vehicule.tps_stationnement = 0;
+                    vehicule.last_x = -1;
+                    vehicule.last_y = -1;
+                    vehicule.phase_sortie = 0;
+                    vehicule.posx = 88;
+                    vehicule.posy = 35;
+                    vehicule.code_couleur = 31; // Rouge
+                    vehicule.direction = 'O';
+                    vehicule.start_time = chronometre + (i * 3); // 0s pour la 1ère, 3s pour la 2e
+                    vehicule.active = 0;
+
+                    vehicules[i] = vehicule;
+                    charger_vehicule(&vehicules[i], "voiture_D.txt", 'v');
+
+                }
+
+                initscr();
+                start_color();
+                use_default_colors();
+
+                // cyan
+                init_pair(1, COLOR_CYAN, -1);
+                // jaune
+                init_pair(2, COLOR_YELLOW, -1);
+                // rouge
+                init_pair(3, COLOR_RED, -1);
+                //violet
+                init_pair(4, COLOR_MAGENTA, -1);
+                //vert
+                init_pair(5, COLOR_GREEN, -1);
+
+                while (running)
+                {
+                    // Effacer le contenue de l'ecran virtuel (fournit par ncurses)
+                    clear();
+
+                    afficher_parking();
+
+                    unsigned long now = time(NULL);
+
+                    for (int i = 0; i < MAX_VEHICULES; ++i)
+                    {
+
+                        vehicules[i].tps = time(NULL) - chronometre;
+
+                        // activation au bon moment
+                        if (!vehicules[i].active) {
+                            if (now >= vehicules[i].start_time) {
+                                vehicules[i].active = 1;
+                                // optionnel : reset chronometre spécifique si tu veux
+                            } else {
+                                // pas encore partie -> ne pas la bouger, ne pas la dessiner (ou la dessiner à l'arrêt)
+                                continue;
+                            }
+                        }
+
+                        // Vérifier les touches
+                        if (vehicules[i].statut == 'E') {
+                            deplacer_joueur_auto2(&vehicules[i]);
+                        } else if (vehicules[i].statut == 'S') {
+
+                            // Phase 0 : aller à l'intersection la plus proche sur x=45
+                            if (vehicules[i].phase_sortie == 0) {
+                                // choisir y cible parmi {37,30,23,16} la plus proche de joueur.posy
+                                int ys[5] = {29,24,19,14,7};
+                                int bestY = ys[0];
+                                int bestD = abs(vehicules[i].posy - ys[0]);
+                                for (int i=1;i<5;i++){
+                                    int d = abs(vehicules[i].posy - ys[i]);
+                                    if (d < bestD) { bestD = d; bestY = ys[i]; }
+                                }
+
+                                deplacer_joueur_vers_sortie(47, bestY, &vehicules[i]);
+
+                                if (abs(vehicules[i].posx - 47) + abs(vehicules[i].posy - bestY) <= 1)
+                                    vehicules[i].phase_sortie = 1;
+                            }
+
+                            // Phase 1 : monter sur la colonne x=45 vers y=16 (haut des rangées)
+                            else if (vehicules[i].phase_sortie == 1) {
+                                deplacer_joueur_vers_sortie(47, 8, &vehicules[i]);
+                                if (abs(vehicules[i].posx - 47) + abs(vehicules[i].posy - 8) <= 1)
+                                    vehicules[i].phase_sortie = 2;
+                            }
+
+                            // Phase 2 : aller vers la sortie
+                            else {
+                                deplacer_joueur_vers_sortie(80, 7, &vehicules[i]);
+                            }
+                        }
+
+                        if (vehicules[i].statut == 'P' && time(NULL) - vehicules[i].tps_stationnement < 10) {
+                            COORDONEE coord;
+                            wchar_t wc;
+                            for (int j = 0; j < 4; ++j) {
+                                coord = vehicules[i].tab[j];
+
+                                if (plan[coord.y][coord.x] == L'█') {
+                                    wc = plan[coord.y][coord.x];
+                                    attrset(COLOR_PAIR(3));
+                                    mvprintw(coord.y, coord.x,"%lc", wc);
+                                    attrset(A_NORMAL);
+                                }
+                            }
+                        }
+
+                        if(vehicules[i].statut == 'E' && est_place_parking(&vehicules[i])) {
+                            vehicules[i].statut = 'P';
+
+                            vehicules[i].tps_stationnement = time(NULL);
+                        }
+
+                        if (vehicules[i].statut == 'P' && time(NULL) - vehicules[i].tps_stationnement >= 10) {
+
+                            // petit recul pour sortir de la place (optionnel)
+                            char dir_opp = (vehicules[i].direction == 'O') ? 'E' : 'O';
+                            char touche_direction = get_direction_normalise(dir_opp);
+                            deplacer_joueur(touche_direction, &vehicules[i]);
+
+                            vehicules[i].last_x = vehicules[i].posx;
+                            vehicules[i].last_y = vehicules[i].posy;
+
+                            vehicules[i].statut = 'S';
+                        }
+
+                        if (vehicules[i].posx >= 80 && vehicules[i].posy <= 9) {
+                            running = 0;
+                            break;
+                        }
+
+                        // Afficher le joueur principal
+                        afficher_vehicule(&vehicules[i]);
+                    }
 
                     afficher_gain();
                     afficher_instructions();
