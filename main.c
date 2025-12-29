@@ -324,10 +324,72 @@ int isPlaceOccupe(int cx, int cy, char direction) {
     return 0;
 }
 
+
+// verifier s'il y a un vehicule juste devant pour éviter les accidents
+int isVehiculeDevant(int cx, int cy, char direction, VEHICULE* vehicule_actuel)
+{
+    int distance_check = 3;
+
+    for (int i = 0; i < nb_vehicules; i++) {
+        VEHICULE *autre = &tab_vehicules[i];
+
+        if (!autre->active || autre == vehicule_actuel) continue;
+
+        int ax = autre->position.x;
+        int ay = autre->position.y;
+
+        // Vérifier selon la direction
+        switch (direction) {
+            case 'N':
+                if (ay < cy && ay >= cy - distance_check) {
+                    int diff_x = abs(ax - cx);
+                    if (diff_x <= 3) {
+                        return 1;
+                    }
+                }
+                break;
+
+            case 'S':
+                if (ay > cy && ay <= cy + distance_check) {
+                    int diff_x = abs(ax - cx);
+                    if (diff_x <= 3) {
+                        return 1;
+                    }
+                }
+                break;
+
+            case 'E':
+                if (ax > cx && ax <= cx + distance_check) {
+                    int diff_y = abs(ay - cy);
+                    if (diff_y <= 3) {
+                        return 1;
+                    }
+                }
+                break;
+
+            case 'O':
+                if (ax < cx && ax >= cx - distance_check) {
+                    int diff_y = abs(ay - cy);
+                    if (diff_y <= 3) {
+                        return 1;
+                    }
+                }
+                break;
+        }
+    }
+
+    return 0;
+}
+
 // Vérifier les collisions
 //TODO : avoir le type de voiture
-int isCollision(int cx, int cy, char direction) {
-    DIMENSIONS dim = getDimensionsVehicule(direction, 'v');
+int isCollision(int cx, int cy, char direction, VEHICULE* vehicule) {
+
+    if (avec_collision == 1) {
+        return 0;
+    }
+
+    DIMENSIONS dim = getDimensionsVehicule(direction, vehicule->type);
 
     // Calculer le coin haut-gauche à partir du centre
     int x = cx - dim.offset_x;
@@ -348,6 +410,10 @@ int isCollision(int cx, int cy, char direction) {
                 return 1;
             }
         }
+    }
+
+    if (!isVehiculeDevant(cx, cy,direction, vehicule)) {
+        return 0;
     }
 
     return 0;
@@ -427,7 +493,7 @@ void deplacerVehicule(char direction, VEHICULE* vehicule) {
 
     // new_x/new_y = centre de la voiture
     if (avec_collision == 0) {
-        if (isCollision(new_x, new_y, nouvelle_direction)) {
+        if (isCollision(new_x, new_y, nouvelle_direction, vehicule)) {
             // Collision détectée : on ne déplace PAS
             return;
         }
@@ -476,7 +542,7 @@ void deplacerMultiVehiculeAuto(VEHICULE *vehicule) {
     }
 
     // Vérifier si on peut continuer tout droit
-    bool peut_continuer = !isCollision(new_x, new_y, ancienne_direction);
+    bool peut_continuer = !isCollision(new_x, new_y, ancienne_direction, vehicule);
     bool doit_changer = ((vehicule->count_meme_direction <= 6 && ancienne_direction == 'N') || !peut_continuer);
 
     if (doit_changer) {
@@ -515,14 +581,14 @@ void deplacerMultiVehiculeAuto(VEHICULE *vehicule) {
             }
 
             if ((dir == 'O' || dir == 'E')) {
-                if (!isCollision(test_x, test_y, dir) && !isPlaceOccupe(test_x, test_y, dir)) {
+                if (!isCollision(test_x, test_y, dir, vehicule) && !isPlaceOccupe(test_x, test_y, dir)) {
                     new_x = test_x;
                     new_y = test_y;
                     nouvelle_direction = dir;
                     direction_trouvee = true;
                 }
             }
-            else if (!isCollision(test_x, test_y, dir)) {
+            else if (!isCollision(test_x, test_y, dir, vehicule)) {
                 new_x = test_x;
                 new_y = test_y;
                 nouvelle_direction = dir;
@@ -542,7 +608,7 @@ void deplacerMultiVehiculeAuto(VEHICULE *vehicule) {
                 case 'E': test_x++; break;
             }
 
-            if (!isCollision(test_x, test_y, dir_opposee)) {
+            if (!isCollision(test_x, test_y, dir_opposee, vehicule)) {
                 new_x = test_x;
                 new_y = test_y;
                 nouvelle_direction = dir_opposee;
@@ -594,7 +660,7 @@ void deplacerVehiculeAuto(VEHICULE *vehicule) {
     }
 
     // Vérifier si on peut continuer tout droit
-    bool peut_continuer = !isCollision(new_x, new_y, ancienne_direction);
+    bool peut_continuer = !isCollision(new_x, new_y, ancienne_direction, vehicule);
     bool doit_changer = ((vehicule->count_meme_direction <= 6 && ancienne_direction == 'N') || !peut_continuer);
 
     if (doit_changer)
@@ -632,7 +698,7 @@ void deplacerVehiculeAuto(VEHICULE *vehicule) {
                 case 'E': test_x++; break;
             }
 
-            if (!isCollision(test_x, test_y, dir)) {
+            if (!isCollision(test_x, test_y, dir, vehicule)) {
                 new_x = test_x;
                 new_y = test_y;
                 nouvelle_direction = dir;
@@ -652,7 +718,7 @@ void deplacerVehiculeAuto(VEHICULE *vehicule) {
                 case 'E': test_x++; break;
             }
 
-            //if (!isCollision(test_x, test_y, dir_opposee)) {
+            //if (!isCollision(test_x, test_y, dir_opposee, vehicule)) {
                 new_x = test_x;
                 new_y = test_y;
                 nouvelle_direction = dir_opposee;
@@ -736,7 +802,7 @@ void deplacerVehiculeVers(int cible_x, int cible_y, VEHICULE* vehicule)
 
         if (nx == prev_x && ny == prev_y) continue;
 
-        if (!isCollision(nx, ny, d)) { choix = d; break; }
+        if (!isCollision(nx, ny, d, vehicule)) { choix = d; break; }
     }
 
     // Phase 3 : si bloqué, autoriser demi-tour mais pas si c'est juste revenir en arrière
@@ -749,7 +815,7 @@ void deplacerVehiculeVers(int cible_x, int cible_y, VEHICULE* vehicule)
             if (dir_opp == 'E') nx++;
             if (dir_opp == 'O') nx--;
 
-            if (!(nx == prev_x && ny == prev_y) && !isCollision(nx, ny, dir_opp)) {
+            if (!(nx == prev_x && ny == prev_y) && !isCollision(nx, ny, dir_opp, vehicule)) {
                 choix = dir_opp;
             }
         }
