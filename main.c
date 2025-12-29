@@ -240,52 +240,80 @@ void chargerParking() {
 }
 
 // Creation de vehicule
-void chargerVehicule(VEHICULE *v, const char* fichier, char type)
+void chargerVehicule(VEHICULE *vehicule)
 {
-    FILE *f = fopen(fichier, "r");
+    const char* fichier = NULL;
 
-    if (!f) {
-        printf("Erreur: impossible d'ouvrir %s\n", fichier);
+    if (vehicule->type == 'v') {
+        if (vehicule->direction == 'N' || vehicule->direction == 'S') {
+            fichier = "voiture_Z.txt";
+        }
+        else {
+            fichier = "voiture_D.txt";
+        }
+    }
+
+    else if (vehicule->type == 'm') {
+        if (vehicule->direction == 'N' || vehicule->direction == 'S') {
+            fichier = "moto_Z.txt";
+        }
+        else {
+            fichier = "moto_D.txt";
+        }
+    }
+
+    FILE *f;
+
+    if (fichier != NULL) {
+        f = fopen(fichier, "r");
+
+        if (!f) {
+            printf("Erreur: impossible d'ouvrir %s\n", fichier);
+            return;
+        }
+    }
+    else {
+        printf("Erreur");
         return;
     }
 
-    v->type = type;
-    v->etat = '1';
-    v->vitesse = 1;
+    vehicule->etat = '1';
+    vehicule->vitesse = 1;
 
     for (int i = 0; i < 4; i++) {
-        if (fgets(v->Carrosserie[i], 30, f)) {
-            int len = strlen(v->Carrosserie[i]);
-            if (len > 0 && v->Carrosserie[i][len-1] == '\n') {
-                v->Carrosserie[i][len-1] = '\0';
+        if (fgets(vehicule->Carrosserie[i], 30, f)) {
+            int len = strlen(vehicule->Carrosserie[i]);
+            if (len > 0 && vehicule->Carrosserie[i][len-1] == '\n') {
+                vehicule->Carrosserie[i][len-1] = '\0';
             }
         } else {
-            strcpy(v->Carrosserie[i], "");
+            strcpy(vehicule->Carrosserie[i], "");
         }
     }
+
     fclose(f);
 }
 
 DIMENSIONS getDimensionsVehicule(char direction, char type) {
-    DIMENSIONS dim;
-    if (type == 'v') {
-        switch(direction) {
-            case 'N':
-            case 'S':
-                dim.largeur = 3;
-                dim.hauteur = 3;
-                dim.offset_x = 1;
-                dim.offset_y = 1;
-                break;
-            case 'E':
-            case 'O':
-                dim.largeur = 8;
-                dim.hauteur = 2;
-                dim.offset_x = 3;
-                dim.offset_y = 1;
-                break;
-        }
+    DIMENSIONS dim = {0};
+
+    switch(direction) {
+        case 'N':
+        case 'S':
+            dim.largeur = 3;
+            dim.hauteur = 3;
+            dim.offset_x = 1;
+            dim.offset_y = 1;
+            break;
+        case 'E':
+        case 'O':
+            dim.largeur = 8;
+            dim.hauteur = 2;
+            dim.offset_x = 3;
+            dim.offset_y = 1;
+            break;
     }
+
 
     return dim;
 }
@@ -450,8 +478,8 @@ void afficherVehicule(VEHICULE *v)
 
     // Couleur selon le type
     if (v->type == 'v') attron(COLOR_PAIR(3)); // Rouge pour voiture
-    else if (v->type == 'c') printf("\033[34m"); // Bleu pour camion
-    else if (v->type == 'm') printf("\033[32m"); // Vert pour moto
+    else if (v->type == 'c') attron(COLOR_PAIR(4)); // Magenta pour camion
+    else if (v->type == 'm') attron(COLOR_PAIR(6)); // Bleu pour moto
 
     for (int i = 0; i < 4; i++) {
         for (int i = 0; i < dim.hauteur; i++) {
@@ -507,10 +535,7 @@ void deplacerVehicule(char direction, VEHICULE* vehicule) {
     if (ancienne_direction != nouvelle_direction) {
         vehicule->direction = nouvelle_direction;
 
-        if (direction == 'z' || direction == 's')
-            chargerVehicule(vehicule, "voiture_Z.txt", 'v');
-        else // E ou O
-            chargerVehicule(vehicule, "voiture_D.txt", 'v');
+        chargerVehicule(vehicule);
     }
 }
 
@@ -624,11 +649,7 @@ void deplacerMultiVehiculeAuto(VEHICULE *vehicule) {
 
     if (ancienne_direction != nouvelle_direction) {
         vehicule->direction = nouvelle_direction;
-
-        if (nouvelle_direction == 'N' || nouvelle_direction == 'S')
-            chargerVehicule(vehicule, "voiture_Z.txt", 'v');
-        else
-            chargerVehicule(vehicule, "voiture_D.txt", 'v');
+        chargerVehicule(vehicule);
     }
 }
 
@@ -735,10 +756,7 @@ void deplacerVehiculeAuto(VEHICULE *vehicule) {
     if (ancienne_direction != nouvelle_direction) {
         vehicule->direction = nouvelle_direction;
 
-        if (nouvelle_direction == 'N' || nouvelle_direction == 'S')
-            chargerVehicule(vehicule, "voiture_Z.txt", 'v');
-        else
-            chargerVehicule(vehicule, "voiture_D.txt", 'v');
+        chargerVehicule(vehicule);
     }
 }
 
@@ -829,10 +847,7 @@ void deplacerVehiculeVers(int cible_x, int cible_y, VEHICULE* vehicule)
 
         char touche_direction = get_direction_normalise(choix);
 
-        if (choix == 'N' || choix == 'S')
-            chargerVehicule(vehicule, "voiture_Z.txt", 'v');
-        else
-            chargerVehicule(vehicule, "voiture_D.txt", 'v');
+        chargerVehicule(vehicule);
 
         deplacerVehicule(touche_direction, vehicule);
     }
@@ -910,11 +925,12 @@ void parametreModeJeu()
 
             vehicule.position.x = 86;
             vehicule.position.y = 35;
-            vehicule.code_couleur = 31; // Rouge
             vehicule.direction = 'O';
             vehicule.mode = 'M'; //Manuelle
             vehicule.statut = 'E'; //Entre dans le parking
             vehicule.tps = 0;
+            vehicule.type = 'v'; //voiture
+
             nb_vehicules = 1;
 
             tab_vehicules = malloc(nb_vehicules * sizeof(VEHICULE));
@@ -926,7 +942,7 @@ void parametreModeJeu()
 
             tab_vehicules[0] = vehicule;
 
-            chargerVehicule(&tab_vehicules[0], "voiture_D.txt", 'v');
+            chargerVehicule(&tab_vehicules[0]);
 
             break;
         case 1 :
@@ -934,11 +950,12 @@ void parametreModeJeu()
 
             vehicule.position.x = 86;
             vehicule.position.y = 35;
-            vehicule.code_couleur = 31; // Rouge
             vehicule.direction = 'O';
             vehicule.mode = 'M'; //Manuelle
             vehicule.statut = 'E'; //Entre dans le parking
             vehicule.tps = 0;
+            vehicule.type = 'v'; //voiture
+
             nb_vehicules = 1;
 
             tab_vehicules = malloc(nb_vehicules * sizeof(VEHICULE));
@@ -950,7 +967,7 @@ void parametreModeJeu()
 
             tab_vehicules[0] = vehicule;
 
-            chargerVehicule(&tab_vehicules[0], "voiture_D.txt", 'v');
+            chargerVehicule(&tab_vehicules[0]);
 
             break;
         case 2 :
@@ -958,7 +975,6 @@ void parametreModeJeu()
 
             vehicule.position.x = 86;
             vehicule.position.y = 35;
-            vehicule.code_couleur = 31; // Rouge
             vehicule.direction = 'O'; // Ouest <- vers la gauche
             vehicule.mode = 'A'; // Manuelle
             vehicule.statut = 'E'; // Entre dans le parking
@@ -967,6 +983,7 @@ void parametreModeJeu()
             vehicule.ancienne_position.x = -1;
             vehicule.ancienne_position.y = -1;
             vehicule.phase_sortie = 0;
+            vehicule.type = 'v'; //voiture
 
             //attribue aléatoirement un temps (entre 10 et 30 secondes) de stationnement
             vehicule.tps_stationnement_alloue = 10 + rand() % 21;
@@ -982,7 +999,7 @@ void parametreModeJeu()
 
             tab_vehicules[0] = vehicule;
 
-            chargerVehicule(&tab_vehicules[0], "voiture_D.txt", 'v');
+            chargerVehicule(&tab_vehicules[0]);
 
             break;
         case 3:
@@ -997,11 +1014,12 @@ void parametreModeJeu()
                 exit(1);
             }
 
+            char types[] = {'v', 'm'};
+
             for (int indexVehicule = 0; indexVehicule < nb_vehicules; indexVehicule++)
             {
                 vehicule.position.x = 86;
                 vehicule.position.y = 35;
-                vehicule.code_couleur = 31; // Rouge
                 vehicule.direction = 'O'; // Ouest <- vers la gauche
                 vehicule.mode = 'A'; // Manuelle
                 vehicule.statut = 'E'; // Entre dans le parking
@@ -1012,13 +1030,15 @@ void parametreModeJeu()
                 vehicule.phase_sortie = 0;
                 vehicule.start_time = chronometre + (indexVehicule * 3); // 0s pour la 1ère, 3s pour la 2e
                 vehicule.active = 0;
+                //vehicule.type = types[0];
+                vehicule.type = types[rand() % 2];
 
                 //attribue aléatoirement un temps (entre 10 et 30 secondes) de stationnement
                 vehicule.tps_stationnement_alloue = 10 + rand() % 21;
 
                 tab_vehicules[indexVehicule] = vehicule;
 
-                chargerVehicule(&tab_vehicules[indexVehicule], "voiture_D.txt", 'v');
+                chargerVehicule(&tab_vehicules[indexVehicule]);
             }
 
             break;
@@ -1034,6 +1054,7 @@ int main() {
 
     //lancer_musique();
 
+    srand(time(NULL));
 
     // Charger le plan
     chargerParking();
@@ -1094,6 +1115,8 @@ int main() {
         init_pair(4, COLOR_MAGENTA, -1);
         //vert
         init_pair(5, COLOR_GREEN, -1);
+        //bleu
+        init_pair(6, COLOR_BLUE, -1);
 
         parametreModeJeu();
 
