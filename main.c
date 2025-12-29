@@ -694,14 +694,17 @@ void deplacerVehiculeVers(int cible_x, int cible_y, VEHICULE* vehicule)
     char essais[4];
     int k = 0;
 
+    // Si le véhicule est en sortie, JAMAIS vers le sud la sortie est en haut (N)
+    bool interdit_sud = (vehicule->statut == 'S');
+
     if (abs(dx) >= abs(dy)) {
         if (dx > 0) essais[k++] = 'E';
         if (dx < 0) essais[k++] = 'O';
         if (dy < 0) essais[k++] = 'N';
-        if (dy > 0) essais[k++] = 'S';
+        if (dy > 0 && !interdit_sud) essais[k++] = 'S';
     } else {
         if (dy < 0) essais[k++] = 'N';
-        if (dy > 0) essais[k++] = 'S';
+        if (dy > 0 && !interdit_sud) essais[k++] = 'S';
         if (dx > 0) essais[k++] = 'E';
         if (dx < 0) essais[k++] = 'O';
     }
@@ -711,6 +714,8 @@ void deplacerVehiculeVers(int cible_x, int cible_y, VEHICULE* vehicule)
 
     char all[4] = {'N','S','E','O'};
     for (int i = 0; i < 4; i++) {
+        if (interdit_sud && all[i] == 'S') continue;
+
         bool deja = false;
         for (int j = 0; j < k; j++) if (essais[j] == all[i]) deja = true;
         if (!deja) essais[k++] = all[i];
@@ -735,15 +740,18 @@ void deplacerVehiculeVers(int cible_x, int cible_y, VEHICULE* vehicule)
     }
 
     // Phase 3 : si bloqué, autoriser demi-tour mais pas si c'est juste revenir en arrière
+    // ET JAMAIS vers le sud en sortie
     if (choix == 0) {
-        int nx = vehicule->position.x, ny = vehicule->position.y;
-        if (dir_opp == 'N') ny--;
-        if (dir_opp == 'S') ny++;
-        if (dir_opp == 'E') nx++;
-        if (dir_opp == 'O') nx--;
+        if (!(interdit_sud && dir_opp == 'S')) {
+            int nx = vehicule->position.x, ny = vehicule->position.y;
+            if (dir_opp == 'N') ny--;
+            if (dir_opp == 'S') ny++;
+            if (dir_opp == 'E') nx++;
+            if (dir_opp == 'O') nx--;
 
-        if (!(nx == prev_x && ny == prev_y) && !isCollision(nx, ny, dir_opp)) {
-            choix = dir_opp;
+            if (!(nx == prev_x && ny == prev_y) && !isCollision(nx, ny, dir_opp)) {
+                choix = dir_opp;
+            }
         }
     }
 
@@ -1081,16 +1089,24 @@ int main() {
                         else deplacerMultiVehiculeAuto(vehiculeCourant);
                     }
                     else if (vehiculeCourant->statut == 'S') {
-                        // Phase 0 : aller à l'intersection la plus proche sur x=45
+                        // Phase 0 : aller à l'intersection la plus proche sur x=47
                         if (vehiculeCourant->phase_sortie == 0)
                         {
-                            // choisir y cible parmi {37,30,23,16} la plus proche de vehiculeCourant->posy
                             int ys[5] = {29,24,19,14,7};
                             int bestY = ys[0];
                             int bestD = abs(vehiculeCourant->position.y - ys[0]);
-                            for (int i=1;i<5;i++){
-                                int d = abs(vehiculeCourant->position.y - ys[i]);
-                                if (d < bestD) { bestD = d; bestY = ys[i]; }
+
+                            for (int i=0; i<5; i++){
+                                // On privilégie les y >= position actuelle (vers le haut ou mêeme niveau)
+                                if (ys[i] >= vehiculeCourant->position.y) {
+                                    int d = abs(vehiculeCourant->position.y - ys[i]);
+                                    if (d < bestD) { bestD = d; bestY = ys[i]; }
+                                }
+                            }
+
+                            // Si aucun y au dessus, prendre le plus haut disponible
+                            if (bestY == -1) {
+                                bestY = ys[0]; // 29 est le plus haut
                             }
 
                             deplacerVehiculeVers(47, bestY, vehiculeCourant);
@@ -1099,7 +1115,7 @@ int main() {
                                 vehiculeCourant->phase_sortie = 1;
                         }
 
-                        // Phase 1 : monter sur la colonne x=45 vers y=16 (haut des rangées)
+                        // Phase 1 : monter sur la colonne x=47 vers y=8
                         else if (vehiculeCourant->phase_sortie == 1)
                         {
                             deplacerVehiculeVers(47, 8, vehiculeCourant);
@@ -1107,7 +1123,7 @@ int main() {
                                 vehiculeCourant->phase_sortie = 2;
                         }
 
-                        else deplacerVehiculeVers(80,7, vehiculeCourant);
+                        else deplacerVehiculeVers(80, 7, vehiculeCourant);
                     }
                 }
 
