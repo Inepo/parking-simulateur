@@ -18,7 +18,6 @@ typedef struct voiture {
     char direction;      // N, S, E, O
     int count_meme_direction;   //nb même direction d'affilée
     COORDONEE position;     // Position
-    int vitesse;        // Vitesse
     char type;          // v, c, m (voiture, camion, moto)
     char Carrosserie[4][30]; //TODO
     int code_couleur;   // couleur de la voiture
@@ -262,6 +261,21 @@ void chargerVehicule(VEHICULE *vehicule)
         }
     }
 
+    else if (vehicule->type == 'c') {
+        if (vehicule->direction == 'N') {
+            fichier = "camion_Z.txt";
+        }
+        else if (vehicule->direction == 'S') {
+            fichier = "camion_S.txt";
+        }
+        else if (vehicule->direction == 'O') {
+            fichier = "camion_Q.txt";
+        }
+        else {
+            fichier = "camion_D.txt";
+        }
+    }
+
     FILE *f;
 
     if (fichier != NULL) {
@@ -278,7 +292,6 @@ void chargerVehicule(VEHICULE *vehicule)
     }
 
     vehicule->etat = '1';
-    vehicule->vitesse = 1;
 
     for (int i = 0; i < 4; i++) {
         if (fgets(vehicule->Carrosserie[i], 30, f)) {
@@ -307,7 +320,7 @@ DIMENSIONS getDimensionsVehicule(char direction) {
             break;
         case 'E':
         case 'O':
-            dim.largeur = 9;
+            dim.largeur = 10;
             dim.hauteur = 3;
             dim.offset_x = 4;
             dim.offset_y = 2;
@@ -1005,7 +1018,7 @@ void parametreModeJeu()
         case 3:
             avec_collision = 0;
 
-            nb_vehicules = 4;
+            nb_vehicules = 6;
 
             tab_vehicules = malloc(nb_vehicules * sizeof(VEHICULE));
 
@@ -1014,7 +1027,7 @@ void parametreModeJeu()
                 exit(1);
             }
 
-            char types[] = {'v', 'm'};
+            char types[] = {'v', 'm', 'c'};
 
             for (int indexVehicule = 0; indexVehicule < nb_vehicules; indexVehicule++)
             {
@@ -1028,10 +1041,9 @@ void parametreModeJeu()
                 vehicule.ancienne_position.x = -1;
                 vehicule.ancienne_position.y = -1;
                 vehicule.phase_sortie = 0;
-                vehicule.start_time = chronometre + (indexVehicule * 3); // 0s pour la 1ère, 3s pour la 2e
+                vehicule.start_time = chronometre + (indexVehicule * 2); // 0s pour la 1ère, 3s pour la 2e
                 vehicule.active = 0;
-                //vehicule.type = types[0];
-                vehicule.type = types[rand() % 2];
+                vehicule.type = types[rand() % 3];
 
                 //attribue aléatoirement un temps (entre 10 et 30 secondes) de stationnement
                 vehicule.tps_stationnement_alloue = 10 + rand() % 21;
@@ -1065,8 +1077,8 @@ int main() {
     printf("Jeu permettant de simuler le stationnement de voitures dans un parking payant\n\n");
 
     printf("Pour commencer veuillez choisir votre mode de jeu :\n");
-    printf("[1] Sans collision - manuelle\n");
-    printf("[2] Avec collision - manuelle\n");
+    printf("[1] Entrainement : mode facile (sans collision possible)\n");
+    printf("[2] Entrainement : mode difficle (avec collision possible)\n");
     printf("[3] Auto\n");
     printf("[4] Fluide : circulation calme et agréable, sans bouchons.\n\n");
 
