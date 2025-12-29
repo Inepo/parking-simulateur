@@ -53,7 +53,7 @@ typedef struct {
 
 
 
-#define HAUTEUR 50
+#define HAUTEUR 60
 
 #define LARGEUR 130
 
@@ -151,7 +151,7 @@ int isDansPlaceParking(VEHICULE *voiture)
         }
 
         // On set les coordonnées du mur en partant du premier et en descendant de 4
-        for (int i = 0; i < 4; i++) {
+        for (int i = 0; i < 5; i++) {
             voiture->coord_mur_place[i].x = x_mur;
             voiture->coord_mur_place[i].y = y_debut + i;
         }
@@ -294,23 +294,23 @@ void chargerVehicule(VEHICULE *vehicule)
     fclose(f);
 }
 
-DIMENSIONS getDimensionsVehicule(char direction, char type) {
+DIMENSIONS getDimensionsVehicule(char direction) {
     DIMENSIONS dim = {0};
 
     switch(direction) {
         case 'N':
         case 'S':
-            dim.largeur = 3;
-            dim.hauteur = 3;
-            dim.offset_x = 1;
-            dim.offset_y = 1;
+            dim.largeur = 4;
+            dim.hauteur = 4;
+            dim.offset_x = 2;
+            dim.offset_y = 2;
             break;
         case 'E':
         case 'O':
-            dim.largeur = 8;
-            dim.hauteur = 2;
-            dim.offset_x = 3;
-            dim.offset_y = 1;
+            dim.largeur = 9;
+            dim.hauteur = 3;
+            dim.offset_x = 4;
+            dim.offset_y = 2;
             break;
     }
 
@@ -320,7 +320,7 @@ DIMENSIONS getDimensionsVehicule(char direction, char type) {
 
 int isPlaceOccupe(int cx, int cy, char direction) {
     // On vérifie sur 3O caractères
-    int distance_check = 30;
+    int distance_check = 32;
 
     for (int i = 0; i < nb_vehicules; i++) {
         VEHICULE *autre = &tab_vehicules[i];
@@ -333,7 +333,7 @@ int isPlaceOccupe(int cx, int cy, char direction) {
         if (direction == 'O') {
             if (ax < cx && ax >= cx - distance_check) {
                 int diff_y = abs(ay - cy);
-                if (diff_y <= 5) {
+                if (diff_y <= 6) {
                     return 1;
                 }
             }
@@ -342,7 +342,7 @@ int isPlaceOccupe(int cx, int cy, char direction) {
             if (ax > cx && ax <= cx + distance_check) {
                 int diff_y = abs(ay - cy);
 
-                if (diff_y <= 5) {
+                if (diff_y <= 6) {
                     return 1;
                 }
             }
@@ -417,7 +417,7 @@ int isCollision(int cx, int cy, char direction, VEHICULE* vehicule) {
         return 0;
     }
 
-    DIMENSIONS dim = getDimensionsVehicule(direction, vehicule->type);
+    DIMENSIONS dim = getDimensionsVehicule(direction);
 
     // Calculer le coin haut-gauche à partir du centre
     int x = cx - dim.offset_x;
@@ -472,7 +472,7 @@ void afficherVehicule(VEHICULE *v)
 {
     if (v->etat != '1') return;
 
-    DIMENSIONS dim = getDimensionsVehicule(v->direction, v->type);
+    DIMENSIONS dim = getDimensionsVehicule(v->direction);
     int x = v->position.x - dim.offset_x;
     int y = v->position.y - dim.offset_y;
 
@@ -865,7 +865,7 @@ void afficher_gain_multi()
         prix = prix + (tab_vehicules[p].tps * 2);
     }
 
-    mvprintw(1,104, "Gain total : %02lu,%02lu€",prix / 100, prix % 100);
+    mvprintw(3,104, "Gain total : %02lu,%02lu€",prix / 100, prix % 100);
 
     attroff(COLOR_PAIR(3));
 }
@@ -876,7 +876,7 @@ void afficherInstructions(VEHICULE *vehicule)
 {
     attron(COLOR_PAIR(2));
     // sous le parking
-    int ligne = HAUTEUR + 1;
+    int ligne = HAUTEUR - 1;
 
     int temps = time(NULL) - chronometre;
 
@@ -924,7 +924,7 @@ void parametreModeJeu()
             avec_collision = 0;
 
             vehicule.position.x = 86;
-            vehicule.position.y = 35;
+            vehicule.position.y = 53;
             vehicule.direction = 'O';
             vehicule.mode = 'M'; //Manuelle
             vehicule.statut = 'E'; //Entre dans le parking
@@ -949,7 +949,7 @@ void parametreModeJeu()
             avec_collision = 1;
 
             vehicule.position.x = 86;
-            vehicule.position.y = 35;
+            vehicule.position.y = 53;
             vehicule.direction = 'O';
             vehicule.mode = 'M'; //Manuelle
             vehicule.statut = 'E'; //Entre dans le parking
@@ -974,7 +974,7 @@ void parametreModeJeu()
             avec_collision = 0;
 
             vehicule.position.x = 86;
-            vehicule.position.y = 35;
+            vehicule.position.y = 53;
             vehicule.direction = 'O'; // Ouest <- vers la gauche
             vehicule.mode = 'A'; // Manuelle
             vehicule.statut = 'E'; // Entre dans le parking
@@ -1005,7 +1005,7 @@ void parametreModeJeu()
         case 3:
             avec_collision = 0;
 
-            nb_vehicules = 3;
+            nb_vehicules = 4;
 
             tab_vehicules = malloc(nb_vehicules * sizeof(VEHICULE));
 
@@ -1019,7 +1019,7 @@ void parametreModeJeu()
             for (int indexVehicule = 0; indexVehicule < nb_vehicules; indexVehicule++)
             {
                 vehicule.position.x = 86;
-                vehicule.position.y = 35;
+                vehicule.position.y = 53;
                 vehicule.direction = 'O'; // Ouest <- vers la gauche
                 vehicule.mode = 'A'; // Manuelle
                 vehicule.statut = 'E'; // Entre dans le parking
@@ -1181,11 +1181,11 @@ int main() {
                         // Phase 0 : aller à l'intersection la plus proche sur x=47
                         if (vehiculeCourant->phase_sortie == 0)
                         {
-                            int ys[5] = {29,24,19,14,7};
+                            int ys[8] = {45,39,33,27,21,15,7};
                             int bestY = ys[0];
                             int bestD = abs(vehiculeCourant->position.y - ys[0]);
 
-                            for (int i=0; i<5; i++){
+                            for (int i=0; i<7; i++){
                                 // On privilégie les y >= position actuelle (vers le haut ou mêeme niveau)
                                 if (ys[i] >= vehiculeCourant->position.y) {
                                     int d = abs(vehiculeCourant->position.y - ys[i]);
@@ -1221,7 +1221,7 @@ int main() {
                     if (!isDansPlaceParking(vehiculeCourant))vehiculeCourant->statut = 'E';
                     else {
                         COORDONEE coord;
-                        for (int i = 0; i < 4; ++i) {
+                        for (int i = 0; i < 5; ++i) {
                             coord = vehiculeCourant->coord_mur_place[i];
                             if (plan[coord.y][coord.x] == L'█') {
                                 attron(COLOR_PAIR(3));
