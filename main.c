@@ -33,7 +33,7 @@ typedef struct voiture {
     COORDONEE coord_mur_place[4];  // coordonnée du mur de couleur de le place
     unsigned long start_time;  // timestamp de départ
     int active;                // 0 = pas encore lancée, 1 = en cours
-
+    int nb_sans_bouger;
 }VEHICULE;
 
 typedef struct {
@@ -47,7 +47,8 @@ typedef struct {
     MANUELLE_COLLISION = 0,
     MANUELLE_SANS_COLLISION = 1,
     AUTOMATIQUE_SOLO = 2,
-    AUTOMATIQUE_MULTI = 3,
+    FLUIDE = 3,
+    CHARGE = 4
 } MODE_JEU;
 
 
@@ -367,51 +368,71 @@ int isPlaceOccupe(int cx, int cy, char direction) {
 
 
 // verifier s'il y a un vehicule juste devant pour éviter les accidents
-int isVehiculeDevant(int cx, int cy, char direction, VEHICULE* vehicule_actuel)
-{
-    int distance_check = 3;
+int isVehiculeDevant(int cx, int cy, char direction, VEHICULE* vehicule) {
+    // Distance de sécurité pour la détection
+    int distance_check = 8;
 
+    // Obtenir les dimensions du véhicule actuel
+    DIMENSIONS dim_actuel = getDimensionsVehicule(direction);
+
+    // Calculer la zone occupée par le véhicule actuel
+    int x_actuel = cx - dim_actuel.offset_x;
+    int y_actuel = cy - dim_actuel.offset_y;
+
+    // Parcourir tous les autres véhicules
     for (int i = 0; i < nb_vehicules; i++) {
         VEHICULE *autre = &tab_vehicules[i];
 
-        if (!autre->active || autre == vehicule_actuel) continue;
+        // Ignorer le véhicule lui-même et les véhicules inactifs
+        if (!autre->active || autre == vehicule) continue;
 
-        int ax = autre->position.x;
-        int ay = autre->position.y;
+        // Obtenir les dimensions de l'autre véhicule
+        DIMENSIONS dim_autre = getDimensionsVehicule(autre->direction);
 
-        // Vérifier selon la direction
-        switch (direction) {
+        int ax = autre->position.x - dim_autre.offset_x;
+        int ay = autre->position.y - dim_autre.offset_y;
+
+        // Vérifier selon la direction du déplacement
+        switch(direction) {
             case 'N':
-                if (ay < cy && ay >= cy - distance_check) {
-                    int diff_x = abs(ax - cx);
-                    if (diff_x <= 3) {
+                // Véhicule devant = plus haut (y plus petit)
+                if (ay < y_actuel && ay >= y_actuel - distance_check) {
+                    // Vérifier chevauchement horizontal
+                    if (!(ax + dim_autre.largeur <= x_actuel ||
+                          ax >= x_actuel + dim_actuel.largeur)) {
                         return 1;
                     }
                 }
                 break;
 
             case 'S':
-                if (ay > cy && ay <= cy + distance_check) {
-                    int diff_x = abs(ax - cx);
-                    if (diff_x <= 3) {
-                        return 1;
-                    }
-                }
-                break;
-
-            case 'E':
-                if (ax > cx && ax <= cx + distance_check) {
-                    int diff_y = abs(ay - cy);
-                    if (diff_y <= 3) {
+                // Véhicule devant = plus bas (y plus grand)
+                if (ay > y_actuel && ay <= y_actuel + distance_check) {
+                    // Vérifier chevauchement horizontal
+                    if (!(ax + dim_autre.largeur <= x_actuel ||
+                          ax >= x_actuel + dim_actuel.largeur)) {
                         return 1;
                     }
                 }
                 break;
 
             case 'O':
-                if (ax < cx && ax >= cx - distance_check) {
-                    int diff_y = abs(ay - cy);
-                    if (diff_y <= 3) {
+                // Véhicule devant = plus à gauche (x plus petit)
+                if (ax < x_actuel && ax >= x_actuel - distance_check) {
+                    // Vérifier chevauchement vertical
+                    if (!(ay + dim_autre.hauteur <= y_actuel ||
+                          ay >= y_actuel + dim_actuel.hauteur)) {
+                        return 1;
+                    }
+                }
+                break;
+
+            case 'E':
+                // Véhicule devant = plus à droite (x plus grand)
+                if (ax > x_actuel && ax <= x_actuel + distance_check) {
+                    // Vérifier chevauchement vertical
+                    if (!(ay + dim_autre.hauteur <= y_actuel ||
+                          ay >= y_actuel + dim_actuel.hauteur)) {
                         return 1;
                     }
                 }
@@ -422,8 +443,8 @@ int isVehiculeDevant(int cx, int cy, char direction, VEHICULE* vehicule_actuel)
     return 0;
 }
 
+
 // Vérifier les collisions
-//TODO : avoir le type de voiture
 int isCollision(int cx, int cy, char direction, VEHICULE* vehicule) {
 
     if (avec_collision == 1) {
@@ -453,8 +474,8 @@ int isCollision(int cx, int cy, char direction, VEHICULE* vehicule) {
         }
     }
 
-    if (!isVehiculeDevant(cx, cy,direction, vehicule)) {
-        return 0;
+    if (isVehiculeDevant(cx, cy, direction, vehicule)) {
+        return 1;
     }
 
     return 0;
@@ -579,8 +600,8 @@ void deplacerMultiVehiculeAuto(VEHICULE *vehicule) {
         case 'E': new_x++; break;
     }
 
-    // Vérifier si on peut continuer tout droit
-    bool peut_continuer = !isCollision(new_x, new_y, ancienne_direction, vehicule);
+    // Vérifier si on peut continuer tout droit (inclut la vérification x != 89)
+    bool peut_continuer = (new_x != 89) && !isCollision(new_x, new_y, ancienne_direction, vehicule);
     bool doit_changer = ((vehicule->count_meme_direction <= 6 && ancienne_direction == 'N') || !peut_continuer);
 
     if (doit_changer) {
@@ -618,8 +639,13 @@ void deplacerMultiVehiculeAuto(VEHICULE *vehicule) {
                 case 'E': test_x++; break;
             }
 
+            // Vérifier que test_x != 89
+            if (test_x == 89) {
+                continue;
+            }
+
             if ((dir == 'O' || dir == 'E')) {
-                if (!isCollision(test_x, test_y, dir, vehicule) && !isPlaceOccupe(test_x, test_y, dir)) {
+                if (!isCollision(test_x, test_y, dir, vehicule) && (test_x != 53 && !isPlaceOccupe(test_x, test_y, dir))) {
                     new_x = test_x;
                     new_y = test_y;
                     nouvelle_direction = dir;
@@ -635,7 +661,7 @@ void deplacerMultiVehiculeAuto(VEHICULE *vehicule) {
         }
 
         // Phase 2 : Si vraiment bloqué, essayer même la direction opposée
-        if (!direction_trouvee) {
+        if (vehicule->nb_sans_bouger == 8 && !direction_trouvee) {
             int test_x = vehicule->position.x;
             int test_y = vehicule->position.y;
 
@@ -646,11 +672,17 @@ void deplacerMultiVehiculeAuto(VEHICULE *vehicule) {
                 case 'E': test_x++; break;
             }
 
-            if (!isCollision(test_x, test_y, dir_opposee, vehicule)) {
+            // Vérifier que test_x != 89 même pour la direction opposée
+            if (test_x != 89 && !isCollision(test_x, test_y, dir_opposee, vehicule)) {
                 new_x = test_x;
                 new_y = test_y;
                 nouvelle_direction = dir_opposee;
             }
+
+            vehicule->nb_sans_bouger = 0;
+        }
+        else {
+            vehicule->nb_sans_bouger++;
         }
     } else {
         // Continue tout droit
@@ -932,6 +964,8 @@ void parametreModeJeu()
 {
     VEHICULE vehicule;
 
+    char types[] = {'v', 'm', 'c'};
+
     switch (modeJeu) {
         case 0:
             avec_collision = 0;
@@ -943,6 +977,7 @@ void parametreModeJeu()
             vehicule.statut = 'E'; //Entre dans le parking
             vehicule.tps = 0;
             vehicule.type = 'v'; //voiture
+            vehicule.count_meme_direction = 0;
 
             nb_vehicules = 1;
 
@@ -968,6 +1003,7 @@ void parametreModeJeu()
             vehicule.statut = 'E'; //Entre dans le parking
             vehicule.tps = 0;
             vehicule.type = 'v'; //voiture
+            vehicule.nb_sans_bouger = 0;
 
             nb_vehicules = 1;
 
@@ -997,6 +1033,7 @@ void parametreModeJeu()
             vehicule.ancienne_position.y = -1;
             vehicule.phase_sortie = 0;
             vehicule.type = 'v'; //voiture
+            vehicule.nb_sans_bouger = 0;
 
             //attribue aléatoirement un temps (entre 10 et 30 secondes) de stationnement
             vehicule.tps_stationnement_alloue = 10 + rand() % 21;
@@ -1018,7 +1055,7 @@ void parametreModeJeu()
         case 3:
             avec_collision = 0;
 
-            nb_vehicules = 6;
+            nb_vehicules = 5;
 
             tab_vehicules = malloc(nb_vehicules * sizeof(VEHICULE));
 
@@ -1026,8 +1063,6 @@ void parametreModeJeu()
                 printf("Erreur: malloc\n");
                 exit(1);
             }
-
-            char types[] = {'v', 'm', 'c'};
 
             for (int indexVehicule = 0; indexVehicule < nb_vehicules; indexVehicule++)
             {
@@ -1044,6 +1079,7 @@ void parametreModeJeu()
                 vehicule.start_time = chronometre + (indexVehicule * 2); // 0s pour la 1ère, 3s pour la 2e
                 vehicule.active = 0;
                 vehicule.type = types[rand() % 3];
+                vehicule.nb_sans_bouger = 0;
 
                 //attribue aléatoirement un temps (entre 10 et 30 secondes) de stationnement
                 vehicule.tps_stationnement_alloue = 10 + rand() % 21;
@@ -1053,6 +1089,44 @@ void parametreModeJeu()
                 chargerVehicule(&tab_vehicules[indexVehicule]);
             }
 
+            break;
+        case 4:
+            avec_collision = 0;
+
+            nb_vehicules = 20;
+
+            tab_vehicules = malloc(nb_vehicules * sizeof(VEHICULE));
+
+            if (tab_vehicules == NULL) {
+                printf("Erreur: malloc\n");
+                exit(1);
+            }
+
+            for (int indexVehicule = 0; indexVehicule < nb_vehicules; indexVehicule++)
+            {
+                vehicule.position.x = 86;
+                vehicule.position.y = 53;
+                vehicule.direction = 'O'; // Ouest <- vers la gauche
+                vehicule.mode = 'A'; // Manuelle
+                vehicule.statut = 'E'; // Entre dans le parking
+                vehicule.tps = 0;
+                vehicule.tps_stationnement = 0;
+                vehicule.ancienne_position.x = -1;
+                vehicule.ancienne_position.y = -1;
+                vehicule.phase_sortie = 0;
+                vehicule.nb_sans_bouger = 0;
+
+                vehicule.start_time = chronometre + (indexVehicule * 2); // 0s pour la 1ère, 2s pour la 2e
+                vehicule.active = 0;
+                vehicule.type = types[rand() % 3];
+
+                //attribue aléatoirement un temps (entre 10 et 30 secondes) de stationnement
+                vehicule.tps_stationnement_alloue = 10 + rand() % 21;
+
+                tab_vehicules[indexVehicule] = vehicule;
+
+                chargerVehicule(&tab_vehicules[indexVehicule]);
+            }
             break;
     }
 }
@@ -1077,10 +1151,11 @@ int main() {
     printf("Jeu permettant de simuler le stationnement de voitures dans un parking payant\n\n");
 
     printf("Pour commencer veuillez choisir votre mode de jeu :\n");
-    printf("[1] Entrainement : mode facile (sans collision possible)\n");
-    printf("[2] Entrainement : mode difficle (avec collision possible)\n");
+    printf("[1] Entrainement : mode facile (sans collision possible).\n");
+    printf("[2] Entrainement : mode difficle (avec collision possible).\n");
     printf("[3] Auto\n");
-    printf("[4] Fluide : circulation calme et agréable, sans bouchons.\n\n");
+    printf("[4] Fluide : trafic léger, se garer devient un jeu d’enfant !\n");
+    printf("[5] Chargé : beaucoup de véhicules… attention aux bouchons !\n\n");
 
 
     while (1) {
@@ -1104,7 +1179,8 @@ int main() {
             case 1: modeJeu = MANUELLE_COLLISION; break;
             case 2: modeJeu = MANUELLE_SANS_COLLISION; break;
             case 3: modeJeu = AUTOMATIQUE_SOLO; break;
-            case 4: modeJeu = AUTOMATIQUE_MULTI; break;
+            case 4: modeJeu = FLUIDE; break;
+            case 5: modeJeu = CHARGE; break;
             default:
                 printf("Mode inconnu. Au revoir.\n");
                 return 0;
@@ -1135,7 +1211,7 @@ int main() {
         char touche;
         int running = 1;
 
-        bool modeAuto = (modeJeu == AUTOMATIQUE_MULTI || modeJeu == AUTOMATIQUE_SOLO);
+        bool modeAuto = (modeJeu == FLUIDE || modeJeu == AUTOMATIQUE_SOLO || modeJeu == CHARGE);
 
         while (running)
         {
@@ -1245,13 +1321,27 @@ int main() {
                 }
 
                 if(isDansPlaceParking(vehiculeCourant) &&
-                    (!modeAuto || vehiculeCourant->statut == 'E')) {
+                    (!modeAuto || vehiculeCourant->statut != 'P')) {
                     vehiculeCourant->statut = 'P';
                     vehiculeCourant->tps_stationnement = time(NULL);
                 }
 
                 if (vehiculeCourant->position.x >= 80 && vehiculeCourant->position.y <= 9) {
                     vehiculeCourant->statut = 'F';
+
+                    VEHICULE *nouveau = malloc((nb_vehicules - 1) * sizeof(VEHICULE));
+                    int k = 0;
+
+                    for (int i = 0; i < nb_vehicules; i++) {
+                        if (&tab_vehicules[i] != vehiculeCourant) {
+                            nouveau[k++] = tab_vehicules[i];
+                        }
+                    }
+
+                    free(tab_vehicules);
+                    tab_vehicules = nouveau;
+                    nb_vehicules--;
+
                 }
                 else {
                     afficherVehicule(vehiculeCourant);
@@ -1269,6 +1359,7 @@ int main() {
                     vehiculeCourant->ancienne_position.y = vehiculeCourant->position.y;
 
                     vehiculeCourant->statut = 'S';
+                    vehiculeCourant->tps_stationnement = 0;
                 }
 
                 if (isToutVehiculeSorti()) {
@@ -1287,16 +1378,11 @@ int main() {
 
         //Ferme le mode ncurses pour remettre le terminal normalement
         endwin();
-        unsigned long int prix = 0;
-
-        for (int p = 0; p < nb_vehicules ; ++p) {
-            prix = prix + (tab_vehicules[p].tps * 2);
-        }
 
         int temps = time(NULL) - chronometre;
 
         printf("\n\nVous avez passé un temps totale de %02d:%02d\n", temps / 60, temps % 60);
-        printf("Vous devez régler %02lu,%02lu€\n", prix / 100, prix % 100);
+        printf("Vous devez régler %02d,%02d€\n", gain_total / 100, gain_total % 100);
         printf("\n\nMerci d'avoir joué à Take IT !\n");
 
         // on desaloue l'espace mémoire de notre tableau dynamique
