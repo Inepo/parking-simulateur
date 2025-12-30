@@ -108,6 +108,10 @@ void lancer_musique() {
     system("play -q ost_ft.wav repeat - &");
 }
 
+void klaxon() {
+    system("play -q klaxon.wav &");
+}
+
 char getToucheViaDirection(char direction) {
     if (direction == 'N') return 'z';
     if (direction == 'S') return 's';
@@ -805,6 +809,171 @@ void deplacerVehiculeVers(int cible_x, int cible_y, VEHICULE* vehicule)
     }
 }
 
+void deplacer(VEHICULE* vehiculeCourant, bool modeAuto, int *running) {
+    if (!modeAuto)
+    {
+        // Vérifier les touches
+        char touche = key_pressed();
+            if (touche != 0) {
+                switch(touche) {
+                    case 'z':
+                    case 'q':
+                    case 's':
+                    case 'd':
+                        deplacerVehicule(touche, vehiculeCourant);
+                        break;
+                    case 'p':
+                        klaxon();
+                        break;
+                    case 27:
+                        *running = 0;
+                        break;
+                }
+            }
+    }
+
+    else
+    {
+        if (vehiculeCourant->statut == 'E')
+        {
+            deplacerMultiVehiculeAuto(vehiculeCourant);
+        }
+        else if (vehiculeCourant->statut == 'S') {
+            // Phase 0 : aller à l'intersection la plus proche sur x=46
+            if (vehiculeCourant->phase_sortie == 0)
+            {
+                // Si on n'est pas encore sur x=46, y aller d'abord
+                if (vehiculeCourant->position.x != 46) {
+                    int ys[7] = {45,39,33,27,21,15,7};
+                    int bestY = ys[0];
+                    int bestD = abs(vehiculeCourant->position.y - ys[0]);
+
+                    for (int i=0; i<7; i++){
+                        int d = abs(vehiculeCourant->position.y - ys[i]);
+                        if (d < bestD) {
+                            bestD = d;
+                            bestY = ys[i];
+                        }
+                    }
+
+                    deplacerVehiculeVers(46, bestY, vehiculeCourant);
+                }
+
+                // Une fois sur x=46, se positionner sur une intersection
+                else {
+                    int ys[7] = {45,39,33,27,21,15,7};
+                    int bestY = ys[0];
+                    int bestD = abs(vehiculeCourant->position.y - ys[0]);
+
+                    for (int i=0; i<7; i++){
+                        int d = abs(vehiculeCourant->position.y - ys[i]);
+                        if (d < bestD) {
+                            bestD = d;
+                            bestY = ys[i];
+                        }
+                    }
+
+                    // Forcer uniquement Nord ou Sud pour rester sur x=46
+                    if (vehiculeCourant->position.y > bestY) {
+                        // Aller vers le Nord
+                        vehiculeCourant->direction = 'N';
+                        chargerVehicule(vehiculeCourant);
+                        deplacerVehicule('z', vehiculeCourant);
+                    }
+                    else if (vehiculeCourant->position.y < bestY) {
+                        // Aller vers le Sud
+                        vehiculeCourant->direction = 'S';
+                        chargerVehicule(vehiculeCourant);
+                        deplacerVehicule('s', vehiculeCourant);
+                    }
+
+                    // Vérifier si on a atteint l'intersection
+                    if (abs(vehiculeCourant->position.y - bestY) <= 1) {
+                        vehiculeCourant->phase_sortie = 1;
+                    }
+                }
+            }
+
+            // Phase 1 : monter sur la colonne x=46 vers y=8
+            else if (vehiculeCourant->phase_sortie == 1)
+            {
+                // Forcer à rester sur x=46 en allant uniquement Nord
+                if (vehiculeCourant->position.x == 46) {
+                    vehiculeCourant->direction = 'N';
+                    chargerVehicule(vehiculeCourant);
+                    deplacerVehicule('z', vehiculeCourant);
+
+                    if (vehiculeCourant->position.y <= 8) {
+                        vehiculeCourant->phase_sortie = 2;
+                    }
+                }
+                else {
+                    // Si on a dévié de x=46, y retourner d'abord
+                    deplacerVehiculeVers(46, vehiculeCourant->position.y, vehiculeCourant);
+                }
+            }
+
+            else deplacerVehiculeVers(80, 7, vehiculeCourant);
+        }
+    }
+}
+
+void colorerMur(VEHICULE *vehiculeCourant) {
+    if (!isDansPlaceParking(vehiculeCourant))vehiculeCourant->statut = 'E';
+    else {
+        COORDONEE coord;
+        for (int i = 0; i < 5; ++i) {
+            coord = vehiculeCourant->coord_mur_place[i];
+            if (plan[coord.y][coord.x] == L'█') {
+                attron(COLOR_PAIR(3));
+                mvprintw(coord.y, coord.x, "%lc", plan[coord.y][coord.x]);
+                attroff(COLOR_PAIR(3));
+            }
+        }
+    }
+}
+
+void libererVehicule(VEHICULE *vehiculeCourant) {
+    vehiculeCourant->statut = 'F';
+
+    gain_save = gain_save + (vehiculeCourant->tps * 2);
+
+    VEHICULE *nouveau = malloc((nb_vehicules - 1) * sizeof(VEHICULE));
+    int k = 0;
+
+    for (int i = 0; i < nb_vehicules; i++) {
+        if (&tab_vehicules[i] != vehiculeCourant) {
+            nouveau[k++] = tab_vehicules[i];
+        }
+    }
+
+    free(tab_vehicules);
+    tab_vehicules = nouveau;
+    nb_vehicules--;
+}
+
+void sortirPlaceParking(VEHICULE *vehiculeCourant) {
+    // petit recul pour sortir de la place (optionnel)
+    char dir_opp = (vehiculeCourant->direction == 'O') ? 'E' : 'O';
+    char touche_direction = getToucheViaDirection(dir_opp);
+    deplacerVehicule(touche_direction, vehiculeCourant);
+
+    vehiculeCourant->ancienne_position.x = vehiculeCourant->position.x;
+    vehiculeCourant->ancienne_position.y = vehiculeCourant->position.y;
+
+    vehiculeCourant->statut = 'S';
+    vehiculeCourant->tps_stationnement = 0;
+}
+
+void afficherTemps() {
+    int temps = time(NULL) - chronometre;
+
+    attron(COLOR_PAIR(2));
+    mvprintw(5, 107, "Temps: %02lu:%02lu", temps / 60, temps % 60);
+    attroff(COLOR_PAIR(2));
+    refresh();
+}
+
 
 // affichage du hain sur la console (temps par voiture * 2)
 void afficherGainMulti()
@@ -1002,6 +1171,19 @@ void parametreModeJeu()
             }
             break;
     }
+
+    // cyan
+    init_pair(1, COLOR_CYAN, -1);
+    // jaune
+    init_pair(2, COLOR_YELLOW, -1);
+    // rouge
+    init_pair(3, COLOR_RED, -1);
+    //violet
+    init_pair(4, COLOR_MAGENTA, -1);
+    //vert
+    init_pair(5, COLOR_GREEN, -1);
+    //bleu
+    init_pair(6, COLOR_BLUE, -1);
 }
 
 
@@ -1018,16 +1200,19 @@ int main() {
     // Charger le plan
     chargerParking();
 
+    printf("\n\n\n\n");
     afficherFichier("logo.txt");
 
     printf("★ Regle du jeu ★\n");
-    printf("Jeu permettant de simuler le stationnement de voitures dans un parking payant\n\n");
+    printf("Jeu permettant de simuler le stationnement de voitures dans un parking payant\n\n\n\n");
+    printf("Mode Parking ON : vitesse plafonnée à 3 px/s.\n");
+    printf("Même à fond, votre véhicule refuse d’obéir… et c’est voulu\n\n\n\n");
 
     printf("Pour commencer veuillez choisir votre mode de jeu :\n");
     printf("[1] Entrainement : mode facile.\n");
     printf("[2] Entrainement : mode difficle.\n");
     printf("[3] Fluide : trafic léger, se garer devient un jeu d’enfant !\n");
-    printf("[4] Chargé : beaucoup de véhicules… attention aux bouchons !\n\n");
+    printf("[4] Chargé : beaucoup de véhicules… attention aux bouchons !\n\n\n\n");
 
 
     while (1) {
@@ -1064,22 +1249,8 @@ int main() {
         start_color();
         use_default_colors();
 
-        // cyan
-        init_pair(1, COLOR_CYAN, -1);
-        // jaune
-        init_pair(2, COLOR_YELLOW, -1);
-        // rouge
-        init_pair(3, COLOR_RED, -1);
-        //violet
-        init_pair(4, COLOR_MAGENTA, -1);
-        //vert
-        init_pair(5, COLOR_GREEN, -1);
-        //bleu
-        init_pair(6, COLOR_BLUE, -1);
-
         parametreModeJeu();
 
-        char touche;
         int running = 1;
 
         bool modeAuto = (modeJeu == FLUIDE || modeJeu == CHARGE);
@@ -1095,14 +1266,19 @@ int main() {
 
             VEHICULE *vehiculeCourant;
 
+
             for (int indexVehicule = 0; indexVehicule < nb_vehicules; indexVehicule++)
             {
+
                 vehiculeCourant = &tab_vehicules[indexVehicule];
 
                 vehiculeCourant->tps = time(NULL) - chronometre;
 
+
+
                 // activation au bon moment
-                if (!vehiculeCourant->active) {
+                if (!vehiculeCourant->active)
+                {
                     if (now >= vehiculeCourant->start_time) {
                         vehiculeCourant->active = 1;
                     } else {
@@ -1110,171 +1286,44 @@ int main() {
                     }
                 }
 
-                if (!modeAuto)
-                {
-                    // Vérifier les touches
-                    touche = key_pressed();
-                    if (touche != 0) {
-                        switch(touche) {
-                            case 'z':
-                            case 'q':
-                            case 's':
-                            case 'd':
-                                deplacerVehicule(touche, vehiculeCourant);
-                                break;
-                            case 27:
-                                running = 0;
-                                break;
-                        }
-                    }
-                }
 
-                else
-                {
-                    if (vehiculeCourant->statut == 'E')
-                    {
-                        deplacerMultiVehiculeAuto(vehiculeCourant);
-                    }
-                    else if (vehiculeCourant->statut == 'S') {
-                        // Phase 0 : aller à l'intersection la plus proche sur x=46
-                        if (vehiculeCourant->phase_sortie == 0)
-                        {
-                            // Si on n'est pas encore sur x=46, y aller d'abord
-                            if (vehiculeCourant->position.x != 46) {
-                                int ys[7] = {45,39,33,27,21,15,7};
-                                int bestY = ys[0];
-                                int bestD = abs(vehiculeCourant->position.y - ys[0]);
 
-                                for (int i=0; i<7; i++){
-                                    int d = abs(vehiculeCourant->position.y - ys[i]);
-                                    if (d < bestD) {
-                                        bestD = d;
-                                        bestY = ys[i];
-                                    }
-                                }
+                deplacer(vehiculeCourant, modeAuto, &running);
 
-                                deplacerVehiculeVers(46, bestY, vehiculeCourant);
-                            }
 
-                            // Une fois sur x=46, se positionner sur une intersection
-                            else {
-                                int ys[7] = {45,39,33,27,21,15,7};
-                                int bestY = ys[0];
-                                int bestD = abs(vehiculeCourant->position.y - ys[0]);
-
-                                for (int i=0; i<7; i++){
-                                    int d = abs(vehiculeCourant->position.y - ys[i]);
-                                    if (d < bestD) {
-                                        bestD = d;
-                                        bestY = ys[i];
-                                    }
-                                }
-
-                                // Forcer uniquement Nord ou Sud pour rester sur x=46
-                                if (vehiculeCourant->position.y > bestY) {
-                                    // Aller vers le Nord
-                                    vehiculeCourant->direction = 'N';
-                                    chargerVehicule(vehiculeCourant);
-                                    deplacerVehicule('z', vehiculeCourant);
-                                }
-                                else if (vehiculeCourant->position.y < bestY) {
-                                    // Aller vers le Sud
-                                    vehiculeCourant->direction = 'S';
-                                    chargerVehicule(vehiculeCourant);
-                                    deplacerVehicule('s', vehiculeCourant);
-                                }
-
-                                // Vérifier si on a atteint l'intersection
-                                if (abs(vehiculeCourant->position.y - bestY) <= 1) {
-                                    vehiculeCourant->phase_sortie = 1;
-                                }
-                            }
-                        }
-
-                        // Phase 1 : monter sur la colonne x=46 vers y=8
-                        else if (vehiculeCourant->phase_sortie == 1)
-                        {
-                            // Forcer à rester sur x=46 en allant uniquement Nord
-                            if (vehiculeCourant->position.x == 46) {
-                                vehiculeCourant->direction = 'N';
-                                chargerVehicule(vehiculeCourant);
-                                deplacerVehicule('z', vehiculeCourant);
-
-                                if (vehiculeCourant->position.y <= 8) {
-                                    vehiculeCourant->phase_sortie = 2;
-                                }
-                            }
-                            else {
-                                // Si on a dévié de x=46, y retourner d'abord
-                                deplacerVehiculeVers(46, vehiculeCourant->position.y, vehiculeCourant);
-                            }
-                        }
-
-                        else deplacerVehiculeVers(80, 7, vehiculeCourant);
-                    }
-                }
 
                 if (vehiculeCourant->statut == 'P' &&
-                    (!modeAuto || (time(NULL) - vehiculeCourant->tps_stationnement < vehiculeCourant->tps_stationnement_alloue))) {
-                    if (!isDansPlaceParking(vehiculeCourant))vehiculeCourant->statut = 'E';
-                    else {
-                        COORDONEE coord;
-                        for (int i = 0; i < 5; ++i) {
-                            coord = vehiculeCourant->coord_mur_place[i];
-                            if (plan[coord.y][coord.x] == L'█') {
-                                attron(COLOR_PAIR(3));
-                                mvprintw(coord.y, coord.x, "%lc", plan[coord.y][coord.x]);
-                                attroff(COLOR_PAIR(3));
-                            }
-                        }
-                    }
+                    (!modeAuto || (time(NULL) - vehiculeCourant->tps_stationnement < vehiculeCourant->tps_stationnement_alloue)))
+                {
+                    colorerMur(vehiculeCourant);
                 }
 
+
                 if(isDansPlaceParking(vehiculeCourant) &&
-                    (!modeAuto || vehiculeCourant->statut != 'P')) {
+                    (!modeAuto || vehiculeCourant->statut != 'P'))
+                {
                     vehiculeCourant->statut = 'P';
                     vehiculeCourant->tps_stationnement = time(NULL);
                 }
 
-                if (vehiculeCourant->position.x >= 80 && vehiculeCourant->position.y <= 9) {
-                    vehiculeCourant->statut = 'F';
 
-                    gain_save = gain_save + (vehiculeCourant->tps * 2);
-
-                    VEHICULE *nouveau = malloc((nb_vehicules - 1) * sizeof(VEHICULE));
-                    int k = 0;
-
-                    for (int i = 0; i < nb_vehicules; i++) {
-                        if (&tab_vehicules[i] != vehiculeCourant) {
-                            nouveau[k++] = tab_vehicules[i];
-                        }
-                    }
-
-                    free(tab_vehicules);
-                    tab_vehicules = nouveau;
-                    nb_vehicules--;
-
+                if (vehiculeCourant->position.x >= 80 && vehiculeCourant->position.y <= 9)
+                {
+                    libererVehicule(vehiculeCourant);
                 }
                 else {
                     afficherVehicule(vehiculeCourant);
                 }
 
 
-                if (modeAuto && vehiculeCourant->statut == 'P' && time(NULL) - vehiculeCourant->tps_stationnement >= 10) {
-
-                    // petit recul pour sortir de la place (optionnel)
-                    char dir_opp = (vehiculeCourant->direction == 'O') ? 'E' : 'O';
-                    char touche_direction = getToucheViaDirection(dir_opp);
-                    deplacerVehicule(touche_direction, vehiculeCourant);
-
-                    vehiculeCourant->ancienne_position.x = vehiculeCourant->position.x;
-                    vehiculeCourant->ancienne_position.y = vehiculeCourant->position.y;
-
-                    vehiculeCourant->statut = 'S';
-                    vehiculeCourant->tps_stationnement = 0;
+                if (modeAuto && vehiculeCourant->statut == 'P' && time(NULL) - vehiculeCourant->tps_stationnement >= 10)
+                {
+                    sortirPlaceParking(vehiculeCourant);
                 }
 
-                if (isToutVehiculeSorti()) {
+
+                if (isToutVehiculeSorti())
+                {
                     running = 0;
                     break;
                 }
@@ -1282,14 +1331,13 @@ int main() {
             }
 
             afficherGainMulti();
-            if (!modeAuto) afficherInstructions(vehiculeCourant);
 
-            int temps = time(NULL) - chronometre;
+            if (!modeAuto) {
+                afficherInstructions(vehiculeCourant);
+            }
 
-            attron(COLOR_PAIR(2));
-            mvprintw(5, 107, "Temps: %02lu:%02lu", temps / 60, temps % 60);
-            attroff(COLOR_PAIR(2));
-            refresh();
+            afficherTemps();
+
 
             usleep(70000);
         }
