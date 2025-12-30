@@ -21,7 +21,6 @@ typedef struct voiture {
     char type;          // v, c, m (voiture, camion, moto)
     char Carrosserie[4][30]; //TODO
     int code_couleur;   // couleur de la voiture
-    char etat;          // '1' actif, '0' inactif
     char statut;        // 'E' entrée, 'S' vers sortie, 'P' stationnée 'F' fini
     unsigned long int tps;          // temps passé dans le parking
     char mode;          // 'M' manuelle, 'A' automatique
@@ -325,8 +324,6 @@ void chargerVehicule(VEHICULE *vehicule)
         return;
     }
 
-    vehicule->etat = '1';
-
     for (int i = 0; i < 4; i++) {
         if (fgets(vehicule->Carrosserie[i], 30, f)) {
             int len = strlen(vehicule->Carrosserie[i]);
@@ -517,8 +514,6 @@ void afficherParking()
 // Afficher un véhicule sur la console
 void afficherVehicule(VEHICULE *v)
 {
-    if (v->etat != '1') return;
-
     DIMENSIONS dim = getDimensionsVehicule(v->direction);
     int x = v->position.x - dim.offset_x;
     int y = v->position.y - dim.offset_y;
