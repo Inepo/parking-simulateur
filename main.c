@@ -33,7 +33,7 @@ typedef struct voiture {
     COORDONEE coord_mur_place[4];  // coordonnée du mur de couleur de le place
     unsigned long start_time;  // timestamp de départ
     int active;                // 0 = pas encore lancée, 1 = en cours
-    int nb_sans_bouger;
+    int nb_sans_bouger;         //nombre de fois que le vehicule n'a pas bougé pour eviter les demi tour inutile
 }VEHICULE;
 
 typedef struct {
@@ -46,9 +46,8 @@ typedef struct {
  typedef enum {
     MANUELLE_COLLISION = 0,
     MANUELLE_SANS_COLLISION = 1,
-    AUTOMATIQUE_SOLO = 2,
-    FLUIDE = 3,
-    CHARGE = 4
+    FLUIDE = 2,
+    CHARGE = 3
 } MODE_JEU;
 
 
@@ -79,11 +78,37 @@ MODE_JEU modeJeu;
 
 VEHICULE *tab_vehicules;
 
+
+// Methode élémentaire pour connaitre les dimension d'un vehicule
+DIMENSIONS getDimensionsVehicule(char direction) {
+    DIMENSIONS dim = {0};
+
+    switch(direction) {
+        case 'N':
+        case 'S':
+            dim.largeur = 4;
+            dim.hauteur = 4;
+            dim.offset_x = 2;
+            dim.offset_y = 2;
+            break;
+        case 'E':
+        case 'O':
+            dim.largeur = 10;
+            dim.hauteur = 3;
+            dim.offset_x = 4;
+            dim.offset_y = 2;
+            break;
+    }
+
+
+    return dim;
+}
+
 void lancer_musique() {
     system("play -q ost_ft.wav repeat - &");
 }
 
-char get_direction_normalise(char direction) {
+char getToucheViaDirection(char direction) {
     if (direction == 'N') return 'z';
     if (direction == 'S') return 's';
     if (direction == 'O') return 'q';
@@ -99,6 +124,20 @@ char getDirectionOppose(char direction) {
     return 'O';
 }
 
+// Verifie si le caractère est un mur
+int isMur(wchar_t wc)
+{
+    return (wc == L'─' || wc == L'┐'
+         || wc == L'┌' || wc == L'│'
+         || wc == L'├' || wc == L'┤'
+         || wc == L'└' || wc == L'┘'
+         || wc == L'║' || wc == L'═'
+         || wc == L'╗' || wc == L'╔'
+         || wc == L'╚' || wc == L'╝'
+         || wc == L'█');
+}
+
+
 // Verifier si tout les vehicules sont sortis
 int isToutVehiculeSorti() {
     for (int i = 0; i < nb_vehicules; i++) {
@@ -109,17 +148,8 @@ int isToutVehiculeSorti() {
     return 1;
 }
 
-// Fonction utilitaire pour obtenir la direction opposée
-char getDirectionOpposee(char direction) {
-    switch(direction) {
-        case 'N': return 'S';
-        case 'S': return 'N';
-        case 'E': return 'O';
-        case 'O': return 'E';
-        default: return direction;
-    }
-}
 
+// Verifier si le vehicule est dans une place de parking
 int isDansPlaceParking(VEHICULE *voiture)
 {
     int x = voiture->position.x;
@@ -172,18 +202,6 @@ int isDansPlaceParking(VEHICULE *voiture)
     return 0;
 }
 
-int isMur(wchar_t wc)
-{
-    return (wc == L'─' || wc == L'┐'
-         || wc == L'┌' || wc == L'│'
-         || wc == L'├' || wc == L'┤'
-         || wc == L'└' || wc == L'┘'
-         || wc == L'║' || wc == L'═'
-         || wc == L'╗' || wc == L'╔'
-         || wc == L'╚' || wc == L'╝'
-         || wc == L'█');
-}
-
 
 /* *
  * Fonction de détection de touche non-bloquante
@@ -213,6 +231,7 @@ char key_pressed() {
     }
     return result;
 }
+
 
 // Charger le plan depuis un fichier
 void chargerParking() {
@@ -247,6 +266,7 @@ void chargerParking() {
 
     fclose(f);
 }
+
 
 // Creation de vehicule
 void chargerVehicule(VEHICULE *vehicule)
@@ -317,30 +337,8 @@ void chargerVehicule(VEHICULE *vehicule)
     fclose(f);
 }
 
-DIMENSIONS getDimensionsVehicule(char direction) {
-    DIMENSIONS dim = {0};
 
-    switch(direction) {
-        case 'N':
-        case 'S':
-            dim.largeur = 4;
-            dim.hauteur = 4;
-            dim.offset_x = 2;
-            dim.offset_y = 2;
-            break;
-        case 'E':
-        case 'O':
-            dim.largeur = 10;
-            dim.hauteur = 3;
-            dim.offset_x = 4;
-            dim.offset_y = 2;
-            break;
-    }
-
-
-    return dim;
-}
-
+// Permet de savoir s'il y a un vehicule à une place
 int isPlaceOccupe(int cx, int cy, char direction) {
     // On vérifie sur 3O caractères
     int distance_check = 32;
@@ -376,19 +374,19 @@ int isPlaceOccupe(int cx, int cy, char direction) {
 }
 
 
-// verifier s'il y a un vehicule juste devant pour éviter les accidents
+// Verifier s'il y a un vehicule juste devant
 int isVehiculeDevant(int cx, int cy, char direction, VEHICULE* vehicule) {
-    // Distance de sécurité pour la détection
+
+    // Distance de sécurité
     int distance_check = 6;
 
-    // Obtenir les dimensions du véhicule actuel
     DIMENSIONS dim_actuel = getDimensionsVehicule(direction);
 
-    // Calculer la zone occupée par le véhicule actuel
+    // Calcul zone occupée par le véhicule
     int x_actuel = cx - dim_actuel.offset_x;
     int y_actuel = cy - dim_actuel.offset_y;
 
-    // Parcourir tous les autres véhicules
+
     for (int i = 0; i < nb_vehicules; i++) {
         VEHICULE *autre = &tab_vehicules[i];
 
@@ -396,16 +394,14 @@ int isVehiculeDevant(int cx, int cy, char direction, VEHICULE* vehicule) {
             distance_check = 3;
         }
 
-        // Ignorer le véhicule lui-même et les véhicules inactifs
         if (!autre->active || autre == vehicule) continue;
 
-        // Obtenir les dimensions de l'autre véhicule
         DIMENSIONS dim_autre = getDimensionsVehicule(autre->direction);
 
         int ax = autre->position.x - dim_autre.offset_x;
         int ay = autre->position.y - dim_autre.offset_y;
 
-        // Vérifier selon la direction du déplacement
+
         switch(direction) {
             case 'N':
                 // Véhicule devant = plus haut (y plus petit)
@@ -466,7 +462,7 @@ int isCollision(int cx, int cy, char direction, VEHICULE* vehicule) {
 
     DIMENSIONS dim = getDimensionsVehicule(direction);
 
-    // Calculer le coin haut-gauche à partir du centre
+    // Calculer le coin haut gauche à partir du centre
     int x = cx - dim.offset_x;
     int y = cy - dim.offset_y;
 
@@ -595,7 +591,7 @@ void deplacerMultiVehiculeAuto(VEHICULE *vehicule) {
     char ancienne_direction = vehicule->direction;
     char nouvelle_direction = ancienne_direction;
 
-    // Calculer direction opposée (pour éviter de faire demi-tour)
+    // Calculer direction opposée (pour éviter de faire demi tour)
     char dir_opposee;
     switch(ancienne_direction) {
         case 'N': dir_opposee = 'S'; break;
@@ -613,7 +609,7 @@ void deplacerMultiVehiculeAuto(VEHICULE *vehicule) {
         case 'E': new_x++; break;
     }
 
-    // Vérifier si on peut continuer tout droit (inclut la vérification x != 89)
+    // Vérifier si on peut continuer tout droit
     bool peut_continuer = (new_x != 89) && !isCollision(new_x, new_y, ancienne_direction, vehicule);
 
     if (new_y != 53 && isPlaceOccupe(new_x, new_y, ancienne_direction)) {
@@ -624,7 +620,7 @@ void deplacerMultiVehiculeAuto(VEHICULE *vehicule) {
 
 
     if (doit_changer) {
-        // Réinitialiser
+
         new_x = vehicule->position.x;
         new_y = vehicule->position.y;
         vehicule->count_meme_direction = 0;
@@ -632,7 +628,7 @@ void deplacerMultiVehiculeAuto(VEHICULE *vehicule) {
         char directions[] = {'N', 'S', 'E', 'O'};
         bool direction_trouvee = false;
 
-        // Mélanger les directions pour un comportement moins prévisible
+        // Melanger les directions
         for (int i = 3; i > 0; i--) {
             int j = rand() % (i + 1);
             char temp = directions[i];
@@ -640,7 +636,7 @@ void deplacerMultiVehiculeAuto(VEHICULE *vehicule) {
             directions[j] = temp;
         }
 
-        // Phase 1 : Essayer toutes les directions SAUF l'opposée
+        // Phase 1 : Essayer toutes les directions sauf l'opposée
         for (int i = 0; i < 4 && !direction_trouvee; i++) {
             char dir = directions[i];
 
@@ -658,7 +654,7 @@ void deplacerMultiVehiculeAuto(VEHICULE *vehicule) {
                 case 'E': test_x++; break;
             }
 
-            // Vérifier que test_x != 89
+
             if (test_x == 89) {
                 continue;
             }
@@ -679,7 +675,7 @@ void deplacerMultiVehiculeAuto(VEHICULE *vehicule) {
             }
         }
 
-        // Phase 2 : Si vraiment bloqué, essayer même la direction opposée
+        // Phase 2 : Si vraiment bloqué pendant 20 tours, essayer même la direction opposée
         if (vehicule->nb_sans_bouger == 20 && !direction_trouvee) {
             int test_x = vehicule->position.x;
             int test_y = vehicule->position.y;
@@ -691,7 +687,6 @@ void deplacerMultiVehiculeAuto(VEHICULE *vehicule) {
                 case 'E': test_x++; break;
             }
 
-            // Vérifier que test_x != 89 même pour la direction opposée
             if (test_x != 89 && !isCollision(test_x, test_y, dir_opposee, vehicule)) {
                 new_x = test_x;
                 new_y = test_y;
@@ -713,113 +708,6 @@ void deplacerMultiVehiculeAuto(VEHICULE *vehicule) {
 
     if (ancienne_direction != nouvelle_direction) {
         vehicule->direction = nouvelle_direction;
-        chargerVehicule(vehicule);
-    }
-}
-
-
-// Déplacer un vehicule automatiquement dans un mode solo
-void deplacerVehiculeAuto(VEHICULE *vehicule) {
-    int new_x = vehicule->position.x;
-    int new_y = vehicule->position.y;
-
-    char ancienne_direction = vehicule->direction;
-    char nouvelle_direction = ancienne_direction;
-
-    // Calculer direction opposée (pour éviter de faire demi-tour)
-    char dir_opposee;
-    switch(ancienne_direction) {
-        case 'N': dir_opposee = 'S'; break;
-        case 'S': dir_opposee = 'N'; break;
-        case 'E': dir_opposee = 'O'; break;
-        case 'O': dir_opposee = 'E'; break;
-        default: dir_opposee = ancienne_direction; break;
-    }
-
-    // Calculer la prochaine position selon la direction actuelle
-    switch(ancienne_direction) {
-        case 'N': new_y--; break;
-        case 'S': new_y++; break;
-        case 'O': new_x--; break;
-        case 'E': new_x++; break;
-    }
-
-    // Vérifier si on peut continuer tout droit
-    bool peut_continuer = !isCollision(new_x, new_y, ancienne_direction, vehicule);
-    bool doit_changer = ((vehicule->count_meme_direction <= 6 && ancienne_direction == 'N') || !peut_continuer);
-
-    if (doit_changer)
-    {
-        new_x = vehicule->position.x;
-        new_y = vehicule->position.y;
-        vehicule->count_meme_direction = 0;
-
-        char directions[] = {'N', 'S', 'E', 'O'};
-        bool direction_trouvee = false;
-
-        // Mélanger les directions pour un comportement moins prévisible
-        for (int i = 3; i > 0; i--) {
-            int j = rand() % (i + 1);
-            char temp = directions[i];
-            directions[i] = directions[j];
-            directions[j] = temp;
-        }
-
-        // Phase 1 : Essayer toutes les directions SAUF l'opposée
-        for (int i = 0; i < 4 && !direction_trouvee; i++) {
-            char dir = directions[i];
-
-            if (dir == dir_opposee) {
-                continue;
-            }
-
-            int test_x = vehicule->position.x;
-            int test_y = vehicule->position.y;
-
-            switch(dir) {
-                case 'N': test_y--; break;
-                case 'S': test_y++; break;
-                case 'O': test_x--; break;
-                case 'E': test_x++; break;
-            }
-
-            if (!isCollision(test_x, test_y, dir, vehicule)) {
-                new_x = test_x;
-                new_y = test_y;
-                nouvelle_direction = dir;
-                direction_trouvee = true;
-            }
-        }
-
-        // Phase 2 : Si vraiment bloqué, essayer même la direction opposée
-        if (!direction_trouvee) {
-            int test_x = vehicule->position.x;
-            int test_y = vehicule->position.y;
-
-            switch(dir_opposee) {
-                case 'N': test_y--; break;
-                case 'S': test_y++; break;
-                case 'O': test_x--; break;
-                case 'E': test_x++; break;
-            }
-
-            //if (!isCollision(test_x, test_y, dir_opposee, vehicule)) {
-                new_x = test_x;
-                new_y = test_y;
-                nouvelle_direction = dir_opposee;
-            //}
-        }
-    } else {
-        // Continue tout droit
-        vehicule->count_meme_direction++;
-    }
-
-    vehicule->position.x = new_x;
-    vehicule->position.y = new_y;
-
-    if (ancienne_direction != nouvelle_direction) {
-        vehicule->direction = nouvelle_direction;
-
         chargerVehicule(vehicule);
     }
 }
@@ -871,7 +759,7 @@ void deplacerVehiculeVers(int cible_x, int cible_y, VEHICULE* vehicule)
 
     char choix = 0;
 
-    // Phase 2 : essayer directions (sans demi-tour + sans revenir en arrière)
+    // Phase 2 : essayer directions (sans demi tour + sans revenir en arrière)
     for (int i = 0; i < 4; i++) {
         char d = essais[i];
         if (d == dir_opp) continue;
@@ -909,7 +797,7 @@ void deplacerVehiculeVers(int cible_x, int cible_y, VEHICULE* vehicule)
 
         vehicule->direction = choix;
 
-        char touche_direction = get_direction_normalise(choix);
+        char touche_direction = getToucheViaDirection(choix);
 
         chargerVehicule(vehicule);
 
@@ -1037,40 +925,7 @@ void parametreModeJeu()
             chargerVehicule(&tab_vehicules[0]);
 
             break;
-        case 2 :
-            avec_collision = 0;
-
-            vehicule.position.x = 86;
-            vehicule.position.y = 53;
-            vehicule.direction = 'O'; // Ouest <- vers la gauche
-            vehicule.mode = 'A'; // Manuelle
-            vehicule.statut = 'E'; // Entre dans le parking
-            vehicule.tps = 0;
-            vehicule.tps_stationnement = 0;
-            vehicule.ancienne_position.x = -1;
-            vehicule.ancienne_position.y = -1;
-            vehicule.phase_sortie = 0;
-            vehicule.type = 'v'; //voiture
-            vehicule.nb_sans_bouger = 0;
-
-            //attribue aléatoirement un temps (entre 10 et 30 secondes) de stationnement
-            vehicule.tps_stationnement_alloue = 10 + rand() % 21;
-
-            nb_vehicules = 1;
-
-            tab_vehicules = malloc(nb_vehicules * sizeof(VEHICULE));
-
-            if (tab_vehicules == NULL) {
-                printf("Erreur: malloc\n");
-                exit(1);
-            }
-
-            tab_vehicules[0] = vehicule;
-
-            chargerVehicule(&tab_vehicules[0]);
-
-            break;
-        case 3:
+        case 2:
             avec_collision = 0;
 
             nb_vehicules = 5;
@@ -1108,7 +963,7 @@ void parametreModeJeu()
             }
 
             break;
-        case 4:
+        case 3:
             avec_collision = 0;
 
             nb_vehicules = 30;
@@ -1169,11 +1024,10 @@ int main() {
     printf("Jeu permettant de simuler le stationnement de voitures dans un parking payant\n\n");
 
     printf("Pour commencer veuillez choisir votre mode de jeu :\n");
-    printf("[1] Entrainement : mode facile (sans collision possible).\n");
-    printf("[2] Entrainement : mode difficle (avec collision possible).\n");
-    printf("[3] Auto\n");
-    printf("[4] Fluide : trafic léger, se garer devient un jeu d’enfant !\n");
-    printf("[5] Chargé : beaucoup de véhicules… attention aux bouchons !\n\n");
+    printf("[1] Entrainement : mode facile.\n");
+    printf("[2] Entrainement : mode difficle.\n");
+    printf("[3] Fluide : trafic léger, se garer devient un jeu d’enfant !\n");
+    printf("[4] Chargé : beaucoup de véhicules… attention aux bouchons !\n\n");
 
 
     while (1) {
@@ -1196,9 +1050,8 @@ int main() {
         {
             case 1: modeJeu = MANUELLE_COLLISION; break;
             case 2: modeJeu = MANUELLE_SANS_COLLISION; break;
-            case 3: modeJeu = AUTOMATIQUE_SOLO; break;
-            case 4: modeJeu = FLUIDE; break;
-            case 5: modeJeu = CHARGE; break;
+            case 3: modeJeu = FLUIDE; break;
+            case 4: modeJeu = CHARGE; break;
             default:
                 printf("Mode inconnu. Au revoir.\n");
                 return 0;
@@ -1229,7 +1082,7 @@ int main() {
         char touche;
         int running = 1;
 
-        bool modeAuto = (modeJeu == FLUIDE || modeJeu == AUTOMATIQUE_SOLO || modeJeu == CHARGE);
+        bool modeAuto = (modeJeu == FLUIDE || modeJeu == CHARGE);
 
         while (running)
         {
@@ -1280,8 +1133,7 @@ int main() {
                 {
                     if (vehiculeCourant->statut == 'E')
                     {
-                        if (modeJeu == AUTOMATIQUE_SOLO) deplacerVehiculeAuto(vehiculeCourant);
-                        else deplacerMultiVehiculeAuto(vehiculeCourant);
+                        deplacerMultiVehiculeAuto(vehiculeCourant);
                     }
                     else if (vehiculeCourant->statut == 'S') {
                         // Phase 0 : aller à l'intersection la plus proche sur x=46
@@ -1303,6 +1155,7 @@ int main() {
 
                                 deplacerVehiculeVers(46, bestY, vehiculeCourant);
                             }
+
                             // Une fois sur x=46, se positionner sur une intersection
                             else {
                                 int ys[7] = {45,39,33,27,21,15,7};
@@ -1411,7 +1264,7 @@ int main() {
 
                     // petit recul pour sortir de la place (optionnel)
                     char dir_opp = (vehiculeCourant->direction == 'O') ? 'E' : 'O';
-                    char touche_direction = get_direction_normalise(dir_opp);
+                    char touche_direction = getToucheViaDirection(dir_opp);
                     deplacerVehicule(touche_direction, vehiculeCourant);
 
                     vehiculeCourant->ancienne_position.x = vehiculeCourant->position.x;
