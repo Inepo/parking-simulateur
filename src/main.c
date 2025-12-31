@@ -268,14 +268,14 @@ void afficherTemps() {
     int temps = time(NULL) - chronometre;
 
     attron(COLOR_PAIR(2));
-    mvprintw(5, 107, "Temps: %02d:%02d", temps / 60, temps % 60);
+    mvprintw(5, 116, "Temps: %02d:%02d", temps / 60, temps % 60);
     attroff(COLOR_PAIR(2));
     refresh();
 }
 
 
 // affichage du hain sur la console (temps par voiture * 2)
-void afficherGainMulti()
+void afficherGain()
 {
     attron(COLOR_PAIR(2));
 
@@ -287,7 +287,7 @@ void afficherGainMulti()
 
     prix = prix + gain_save;
 
-    mvprintw(3,104, "Gain total : %02lu,%02lu€",prix / 100, prix % 100);
+    mvprintw(3,113, "Gain total : %02lu,%02lu€",prix / 100, prix % 100);
 
     attroff(COLOR_PAIR(2));
 }
@@ -469,6 +469,47 @@ void parametreModeJeu()
 
 
 
+void afficherInfoModeJeu() {
+    attron(COLOR_PAIR(2));
+    attron(A_BOLD);
+
+    switch (modeJeu) {
+        case 0:
+            mvprintw(11, 108, "Mode entraînement facile activé");
+            mvprintw(12, 123, "—");
+            mvprintw(13, 119, "détends-toi !");
+            mvprintw(15, 111, "Le jeu veille sur toi");
+            mvprintw(16, 123, "—");
+            mvprintw(17, 103, "le décor empêche toute escapade imprévue.");
+            break;
+        case 1:
+            mvprintw(11, 107, "Mode entraînement difficile activé");
+            mvprintw(12, 123, "—");
+            mvprintw(13, 119, "attention !");
+            mvprintw(15, 109, "Le jeu ne veille plus sur toi");
+            mvprintw(16, 123, "—");
+            mvprintw(17, 105, "toute escapade imprévue est game over.");
+            break;
+        case 2:
+            mvprintw(12, 114, "Mode fluide activé");
+            mvprintw(13, 123, "—");
+            mvprintw(14, 112, "trafic fluide garanti !");
+            mvprintw(15, 108, "se garer devient un jeu d’enfant");
+            break;
+        case 3:
+            mvprintw(11, 114, "Mode chargé activé");
+            mvprintw(12, 123, "—");
+            mvprintw(13, 114, "le parking déborde !");
+            mvprintw(14, 112, "Beaucoup de véhicules…");
+            mvprintw(16, 111, "prépare-toi aux bouchons.");
+            break;
+    }
+
+    attroff(COLOR_PAIR(2));
+    attroff(A_BOLD);
+}
+
+
 
 int main() {
 
@@ -501,10 +542,10 @@ int main() {
 
     printf("\033[4;37m");  // Blanc souligne
     printf("Pour commencer veuillez choisir votre mode de jeu :\n");
-    printf("[1] Entrainement : mode facile.\n");
-    printf("[2] Entrainement : mode difficle.\n");
-    printf("[3] Fluide : trafic léger, se garer devient un jeu d’enfant !\n");
-    printf("[4] Chargé : beaucoup de véhicules… attention aux bouchons !\n\n\n\n");
+    printf("[1] Entrainement — mode facile.\n");
+    printf("[2] Entrainement — mode difficle.\n");
+    printf("[3] Fluide — trafic léger, se garer devient un jeu d’enfant !\n");
+    printf("[4] Chargé — beaucoup de véhicules… attention aux bouchons !\n\n\n\n");
     printf("\033[0m"); // RESET
     printf("\033[1;37m");  // Blanc
 
@@ -554,6 +595,7 @@ int main() {
             erase();
 
             afficherParking();
+            afficherInfoModeJeu();
 
             unsigned long now = time(NULL);
 
@@ -619,7 +661,7 @@ int main() {
 
             }
 
-            afficherGainMulti();
+            afficherGain();
 
             if (!modeAuto) {
                 afficherInstructions(vehiculeCourant);

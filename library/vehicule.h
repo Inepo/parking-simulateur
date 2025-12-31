@@ -10,7 +10,7 @@
 
 #define HAUTEUR 60
 
-#define LARGEUR 130
+#define LARGEUR 160
 
 typedef struct {
     int x;

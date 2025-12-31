@@ -268,7 +268,9 @@ void afficherVehicule(VEHICULE *v)
     int y = v->position.y - dim.offset_y;
 
     // Couleur selon le type
-    if (v->klaxon) attron(COLOR_PAIR(2)); // Jaune pour le klaxonneur
+    if (v->klaxon) {
+        attron(COLOR_PAIR(2)); // Jaune pour le klaxonneur
+    }
     else if (v->type == 'v') attron(COLOR_PAIR(3)); // Rouge pour voiture
     else if (v->type == 'c') attron(COLOR_PAIR(4)); // Magenta pour camion
     else if (v->type == 'm') attron(COLOR_PAIR(6)); // Bleu pour moto
@@ -281,7 +283,9 @@ void afficherVehicule(VEHICULE *v)
         }
     }
 
-    if (v->klaxon) attroff(COLOR_PAIR(2));
+    if (v->klaxon) {
+        attroff(COLOR_PAIR(2));
+    }
     else if (v->type == 'v') attroff(COLOR_PAIR(3));
     else if (v->type == 'v') attroff(COLOR_PAIR(4));
     else if (v->type == 'v') attroff(COLOR_PAIR(6));
