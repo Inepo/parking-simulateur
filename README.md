@@ -1,21 +1,12 @@
 # Projet C
 
-⚙️ Pour compiler un fichier unique :
-`gcc main.c -o main`
+☞ Etape pour executer
 
-▶️ Lancer le programme compilé :
-`./main`
+1 - Pour nettoyer :
+`make clean`
 
+2 - Pour compiler :
+`make`
 
-☞ Afin de pouvoir lancer avec ncurses (library pour l'affichage)
-
-1 - Pour compiler (du moins du MacOS):
-`clang main.c -Wall -Wextra -lncurses -o parking`
-
-Pour windows il faut utiliser WLS :
-
-`sudo apt install clang libncurses-dev`
-`clang main.c -Wall -Wextra -lncurses -o parking`
-
-2 - Lancer le programme compilé :
-`./parking`
+3 - Lancer le programme compilé :
+`make run`
