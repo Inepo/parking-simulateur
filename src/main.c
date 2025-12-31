@@ -37,10 +37,13 @@ void lancer_musique() {
     system("play -q assets/ost_ft.wav repeat - &");
 }
 
+void arreter_musique() {
+    system("pkill -f 'ost_ft.wav'");
+}
+
 void klaxon() {
     system("play -q assets/klaxon.wav &");
 }
-
 
 
 
@@ -461,7 +464,7 @@ int main() {
 
     system("clear");
 
-    //lancer_musique();
+    lancer_musique();
 
     srand(time(NULL));
 
@@ -642,6 +645,8 @@ int main() {
         // on desaloue l'espace mémoire de notre tableau dynamique
         free(tab_vehicules);
         tab_vehicules = NULL;
+
+        arreter_musique();
 
         return 0;
     }

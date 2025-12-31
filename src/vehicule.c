@@ -99,6 +99,17 @@ int isDansPlaceParking(VEHICULE *voiture, wchar_t plan[HAUTEUR][LARGEUR])
     return 0;
 }
 
+void klaxonMultiple() {
+    // Vérifier si le processus play est déjà en cours
+    int ret = system("pgrep -f 'klaxonBouchon.wav' > /dev/null 2>&1");
+
+    if (ret == 0) {
+        return;  // Le son est déjà en train de jouer
+    }
+
+    system("play -q assets/klaxonBouchon.wav &");
+}
+
 // Creation de vehicule
 void chargerVehicule(VEHICULE *vehicule)
 {
@@ -496,8 +507,13 @@ void deplacerMultiVehiculeAuto(VEHICULE *vehicule, int avec_collision, int nb_ve
             }
         }
 
-        // Phase 2 : Si vraiment bloqué pendant 20 tours, essayer même la direction opposée
-        if (vehicule->nb_sans_bouger == 20 && !direction_trouvee) {
+        // Phase 2 : Si vraiment bloqué pendant 25 tours, essayer même la direction opposée
+        if (vehicule->nb_sans_bouger >= 18 && !direction_trouvee) {
+            klaxonMultiple();
+        }
+
+
+        if (vehicule->nb_sans_bouger == 30 && !direction_trouvee) {
             int test_x = vehicule->position.x;
             int test_y = vehicule->position.y;
 
