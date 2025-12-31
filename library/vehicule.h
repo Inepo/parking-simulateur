@@ -45,18 +45,13 @@ typedef struct {
     int offset_y;  // offset du centre par rapport au coin haut-gauche
 } DIMENSIONS;
 
-DIMENSIONS getDimensionsVehicule(char direction);
 int isToutVehiculeSorti(int nb_vehicules, VEHICULE *tab_vehicules);
 int isDansPlaceParking(VEHICULE *voiture, wchar_t plan[HAUTEUR][LARGEUR]);
 void chargerVehicule(VEHICULE *vehicule);
-int isVehiculeDevant(COORDONEE coord, char direction, VEHICULE* vehicule, int nb_vehicules, VEHICULE* tab_vehicules);
 void afficherVehicule(VEHICULE *v);
-void deplacerVehicule(char direction, VEHICULE* vehicule, int avec_collision, wchar_t plan[HAUTEUR][LARGEUR], int nb_vehicules, VEHICULE* tab_vehicules);
-void deplacerMultiVehiculeAuto(VEHICULE *vehicule, int avec_collision, int nb_vehicules, VEHICULE *tab_vehicules, wchar_t plan[HAUTEUR][LARGEUR]);
+int deplacerVehicule(char direction, VEHICULE* vehicule, int avec_collision, wchar_t plan[HAUTEUR][LARGEUR], int nb_vehicules, VEHICULE* tab_vehicules);
+void deplacerMultiVehiculeAuto(VEHICULE *vehicule, int nb_vehicules, VEHICULE *tab_vehicules, wchar_t plan[HAUTEUR][LARGEUR]);
 int isPlaceOccupe(COORDONEE coord, char direction, int nb_vehicules, VEHICULE* tab_vehicules);
-int isCollision(COORDONEE coord, char direction,
-    VEHICULE* vehicule, int avec_collision,wchar_t plan[HAUTEUR][LARGEUR],
-    int nb_vehicules, VEHICULE* tab_vehicules);
 void deplacerVehiculeVers(COORDONEE coord, VEHICULE* vehicule,
     int avec_collision, wchar_t plan[HAUTEUR][LARGEUR], int nb_vehicules, VEHICULE* tab_vehicules);
 void sortirPlaceParking(VEHICULE *vehiculeCourant, int avec_collision, wchar_t plan[HAUTEUR][LARGEUR], int nb_vehicules, VEHICULE* tab_vehicules);

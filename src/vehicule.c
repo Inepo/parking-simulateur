@@ -285,12 +285,12 @@ void afficherVehicule(VEHICULE *v)
 
 // Vérifier les collisions
 int isCollision(COORDONEE coord, char direction,
-    VEHICULE* vehicule, int avec_collision,wchar_t plan[HAUTEUR][LARGEUR],
+    VEHICULE* vehicule,wchar_t plan[HAUTEUR][LARGEUR],
     int nb_vehicules, VEHICULE* tab_vehicules) {
 
-    if (avec_collision == 1) {
+    /*if (avec_collision == 1) {
         return 0;
-    }
+    }*/
 
     DIMENSIONS dim = getDimensionsVehicule(direction);
 
@@ -360,7 +360,9 @@ int isPlaceOccupe(COORDONEE coord, char direction, int nb_vehicules, VEHICULE* t
 
 
 // Déplacer le vehicule manuellement
-void deplacerVehicule(char direction, VEHICULE* vehicule, int avec_collision, wchar_t plan[HAUTEUR][LARGEUR], int nb_vehicules, VEHICULE* tab_vehicules) {
+// 0 si aucune collision donc bien géré
+// 1 si collision
+int deplacerVehicule(char direction, VEHICULE* vehicule, int avec_collision, wchar_t plan[HAUTEUR][LARGEUR], int nb_vehicules, VEHICULE* tab_vehicules) {
     int new_x = vehicule->position.x;
     int new_y = vehicule->position.y;
 
@@ -391,9 +393,9 @@ void deplacerVehicule(char direction, VEHICULE* vehicule, int avec_collision, wc
         COORDONEE coord;
         coord.x = new_x;
         coord.y = new_y;
-        if (isCollision(coord, nouvelle_direction, vehicule, avec_collision, plan, nb_vehicules, tab_vehicules)) {
+        if (isCollision(coord, nouvelle_direction, vehicule, plan, nb_vehicules, tab_vehicules)) {
             // Collision détectée : on ne déplace PAS
-            return;
+            return 0;
         }
     }
 
@@ -407,10 +409,17 @@ void deplacerVehicule(char direction, VEHICULE* vehicule, int avec_collision, wc
 
         chargerVehicule(vehicule);
     }
+
+    if (isCollision(vehicule->position, nouvelle_direction, vehicule, plan, nb_vehicules, tab_vehicules)) {
+        // Collision détectée et on déplace quand même avertir
+        return 1;
+    }
+
+    return 0;
 }
 
 // Déplacer un vehicule automatiquement dans un mode multi
-void deplacerMultiVehiculeAuto(VEHICULE *vehicule, int avec_collision, int nb_vehicules, VEHICULE *tab_vehicules, wchar_t plan[HAUTEUR][LARGEUR]) {
+void deplacerMultiVehiculeAuto(VEHICULE *vehicule, int nb_vehicules, VEHICULE *tab_vehicules, wchar_t plan[HAUTEUR][LARGEUR]) {
     int new_x = vehicule->position.x;
     int new_y = vehicule->position.y;
 
@@ -439,7 +448,7 @@ void deplacerMultiVehiculeAuto(VEHICULE *vehicule, int avec_collision, int nb_ve
     COORDONEE coord;
     coord.x = new_x;
     coord.y = new_y;
-    bool peut_continuer = (new_x != 89) && !isCollision(coord, ancienne_direction, vehicule, avec_collision, plan, nb_vehicules, tab_vehicules);
+    bool peut_continuer = (new_x != 89) && !isCollision(coord, ancienne_direction, vehicule, plan, nb_vehicules, tab_vehicules);
 
     if (new_y != 53 && isPlaceOccupe(coord, ancienne_direction, nb_vehicules, tab_vehicules)) {
         peut_continuer = false;
@@ -492,14 +501,14 @@ void deplacerMultiVehiculeAuto(VEHICULE *vehicule, int avec_collision, int nb_ve
             coord.y = test_y;
 
             if ((dir == 'O' || dir == 'E')) {
-                if (!isCollision(coord, dir, vehicule, avec_collision, plan, nb_vehicules, tab_vehicules) && (test_y != 53 && !isPlaceOccupe(coord, dir, nb_vehicules, tab_vehicules))) {
+                if (!isCollision(coord, dir, vehicule, plan, nb_vehicules, tab_vehicules) && (test_y != 53 && !isPlaceOccupe(coord, dir, nb_vehicules, tab_vehicules))) {
                     new_x = test_x;
                     new_y = test_y;
                     nouvelle_direction = dir;
                     direction_trouvee = true;
                 }
             }
-            else if (!isCollision(coord, dir, vehicule, avec_collision, plan, nb_vehicules, tab_vehicules)) {
+            else if (!isCollision(coord, dir, vehicule, plan, nb_vehicules, tab_vehicules)) {
                 new_x = test_x;
                 new_y = test_y;
                 nouvelle_direction = dir;
@@ -527,7 +536,7 @@ void deplacerMultiVehiculeAuto(VEHICULE *vehicule, int avec_collision, int nb_ve
             coord.x = test_x;
             coord.y = test_y;
 
-            if (test_x != 89 && !isCollision(coord, dir_opposee, vehicule, avec_collision, plan, nb_vehicules, tab_vehicules)) {
+            if (test_x != 89 && !isCollision(coord, dir_opposee, vehicule, plan, nb_vehicules, tab_vehicules)) {
                 new_x = test_x;
                 new_y = test_y;
                 nouvelle_direction = dir_opposee;
@@ -616,7 +625,7 @@ void deplacerVehiculeVers(COORDONEE coord, VEHICULE* vehicule, int avec_collisio
         coord.x = nx;
         coord.y = ny;
 
-        if (!isCollision(coord, d, vehicule, avec_collision, plan, nb_vehicules, tab_vehicules)) { choix = d; break; }
+        if (!isCollision(coord, d, vehicule, plan, nb_vehicules, tab_vehicules)) { choix = d; break; }
     }
 
     // Phase 3 : si bloqué, autoriser demi-tour mais pas si c'est juste revenir en arrière
@@ -633,7 +642,7 @@ void deplacerVehiculeVers(COORDONEE coord, VEHICULE* vehicule, int avec_collisio
             coord.x = nx;
             coord.y = ny;
 
-            if (!(nx == prev_x && ny == prev_y) && !isCollision(coord, dir_opp, vehicule, avec_collision, plan, nb_vehicules, tab_vehicules)) {
+            if (!(nx == prev_x && ny == prev_y) && !isCollision(coord, dir_opp, vehicule, plan, nb_vehicules, tab_vehicules)) {
                 choix = dir_opp;
             }
         }

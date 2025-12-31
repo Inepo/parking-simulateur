@@ -24,6 +24,8 @@ int avec_collision;
 
 int gain_save = 0;
 
+int game_over;
+
 unsigned long int chronometre;
 
 MODE_JEU modeJeu;
@@ -109,8 +111,9 @@ void afficherParking()
 
 
 
-
-void deplacer(VEHICULE* vehiculeCourant, bool modeAuto, int *running) {
+// 0 -> collision detecté et pas de mouvement
+// 1 -> collision detécté et mouvement
+int deplacer(VEHICULE* vehiculeCourant, bool modeAuto, int *running) {
     if (!modeAuto)
     {
         // Vérifier les touches
@@ -121,8 +124,7 @@ void deplacer(VEHICULE* vehiculeCourant, bool modeAuto, int *running) {
                     case 'q':
                     case 's':
                     case 'd':
-                        deplacerVehicule(touche, vehiculeCourant, avec_collision, plan, nb_vehicules, tab_vehicules);
-                        break;
+                        return deplacerVehicule(touche, vehiculeCourant, avec_collision, plan, nb_vehicules, tab_vehicules);
                     case 'p':
                         klaxon();
                         break;
@@ -137,7 +139,7 @@ void deplacer(VEHICULE* vehiculeCourant, bool modeAuto, int *running) {
     {
         if (vehiculeCourant->statut == 'E')
         {
-            deplacerMultiVehiculeAuto(vehiculeCourant, avec_collision, nb_vehicules, tab_vehicules, plan);
+            deplacerMultiVehiculeAuto(vehiculeCourant, nb_vehicules, tab_vehicules, plan);
         }
         else if (vehiculeCourant->statut == 'S') {
             // Phase 0 : aller à l'intersection la plus proche sur x=46
@@ -229,6 +231,8 @@ void deplacer(VEHICULE* vehiculeCourant, bool modeAuto, int *running) {
             }
         }
     }
+
+    return 0;
 }
 
 
@@ -569,8 +573,11 @@ int main() {
 
 
 
-                deplacer(vehiculeCourant, modeAuto, &running);
-
+                game_over = deplacer(vehiculeCourant, modeAuto, &running);
+                if (game_over == 1 && modeJeu == MANUELLE_SANS_COLLISION) {
+                    running = 0;
+                    break;
+                }
 
 
                 if (vehiculeCourant->statut == 'P' &&
@@ -633,10 +640,21 @@ int main() {
 
         int temps = time(NULL) - chronometre;
 
-        printf("\n\nVous avez passé un temps totale de \033[1;35m%02d:%02d\033[0m\n", temps / 60, temps % 60);
-
-        printf("\033[1;37m");  // Blanc
-        printf("Vous devez régler \033[1;35m%02d,%02d€\033[0m\n", gain_save / 100, gain_save % 100);
+        if (game_over == 1 && modeJeu == MANUELLE_SANS_COLLISION) {
+            printf("\n\n");
+            afficherFichier("assets/game_over.txt");
+            printf("\033[1;31m");// Rouge souligné
+            printf("Spoiler — les murs ne bougent pas. Toi si. Réessaie !");
+            printf("\n\n\n");
+            printf("\033[1;37m");  // Blanc
+            printf("Vous avez passé un temps totale de \033[1;35m%02d:%02d\033[0m\n", temps / 60, temps % 60);
+        }
+        else {
+            printf("\033[1;37m");  // Blanc
+            printf("\n\nVous avez passé un temps totale de \033[1;35m%02d:%02d\033[0m\n", temps / 60, temps % 60);
+            printf("\033[1;37m");  // Blanc
+            printf("Vous devez régler \033[1;35m%02d,%02d€\033[0m\n", gain_save / 100, gain_save % 100);
+        }
 
         printf("\033[1;37m");  // Blanc
         printf("\n\nMerci d'avoir joué à ");
