@@ -8,7 +8,13 @@
 #include <termios.h>
 #include <wchar.h>
 #include <fcntl.h>
-#include <ncurses.h>//pour l'affichage
+
+#ifdef __APPLE__
+    #include <ncurses.h>
+#else
+    #include <ncursesw/ncurses.h>
+#endif
+
 #include "../library/configuration.h"
 
 char getToucheViaDirection(char direction) {
