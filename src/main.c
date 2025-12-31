@@ -542,7 +542,7 @@ int main() {
         while (running)
         {
             // Effacer le contenue de l'ecran virtuel (fournit par ncurses)
-            clear();
+            erase();
 
             afficherParking();
 
