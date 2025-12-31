@@ -34,7 +34,8 @@ VEHICULE *tab_vehicules;
 
 
 void lancer_musique() {
-    system("play -q assets/ost_ft.wav repeat - &");
+    system("play -q assets/ost_ft.wav > /dev/null 2>&1 &");
+
 }
 
 void arreter_musique() {
@@ -42,7 +43,8 @@ void arreter_musique() {
 }
 
 void klaxon() {
-    system("play -q assets/klaxon.wav &");
+    system("play -q assets/klaxon.wav > /dev/null 2>&1 &");
+
 }
 
 
