@@ -79,7 +79,7 @@ int isMur(wchar_t wc)
 char key_pressed() {
     struct termios oldterm, newterm;
     int oldfd;
-    char c, result = 0;
+    int c, result = 0;
 
     tcgetattr(STDIN_FILENO, &oldterm);
     newterm = oldterm;
