@@ -5,7 +5,13 @@
 #include <locale.h>
 #include <wchar.h>
 #include <time.h>
-#include <ncurses.h>
+
+#ifdef __APPLE__
+    #include <ncurses.h>
+#else
+    #include <ncursesw/ncurses.h>
+#endif
+
 #include "../library/vehicule.h"
 #include "../library/configuration.h"
 

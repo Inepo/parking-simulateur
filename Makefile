@@ -1,6 +1,17 @@
-CC = clang
+# Détection de l'OS
+UNAME_S := $(shell uname -s)
+
+ifeq ($(UNAME_S),Darwin)
+    # macOS
+    CC = clang
+    LDFLAGS = -lncurses
+else
+    # Linux
+    CC = gcc
+    LDFLAGS = -lncursesw
+endif
+
 CFLAGS = -Wall -Wextra -I./library
-LDFLAGS = -lncurses
 
 SRC = src/main.c \
       src/vehicule.c \
