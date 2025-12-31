@@ -16,13 +16,6 @@
 #include "../library/configuration.h"
 
 
-#ifdef __APPLE__
-    #define SLEEP_TIME 70000
-#else
-    #define SLEEP_TIME 100000
-#endif
-
-
 wchar_t plan[HAUTEUR][LARGEUR];
 
 int nb_vehicules;
@@ -617,7 +610,7 @@ int main() {
 
             refresh();
 
-            usleep(SLEEP_TIME);
+            usleep(70000);
 
             if (isToutVehiculeSorti(nb_vehicules, tab_vehicules))
             {
