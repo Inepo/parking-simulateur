@@ -40,18 +40,14 @@ char getDirectionOppose(char direction) {
 
 // affichage d'un fichier texte sur la console, notamment le logo
 void afficherFichier(const char* fichier) {
-    setlocale(LC_CTYPE, "fr_FR.UTF-8");
-
     FILE *f = fopen(fichier, "r");
     if (!f) {
-        printf("Erreur: impossible d'ouvrir %s\n", fichier);
+        fprintf(stderr, "Erreur: impossible d'ouvrir %s\n", fichier);
         exit(1);
     }
 
-    printf("\033[1;31m");
-
-    // Flush stdout avant d'utiliser wide characters
-    fflush(stdout);
+    // Utilise wprintf au lieu de printf pour la couleur
+    wprintf(L"\033[1;31m");
 
     wint_t wc;
     while ((wc = fgetwc(f)) != WEOF)
@@ -59,11 +55,7 @@ void afficherFichier(const char* fichier) {
         putwchar(wc);
     }
 
-    // Flush après aussi
-    fflush(stdout);
-
-    printf("\n");
-    printf("\033[0m");
+    wprintf(L"\n\033[0m");
     fclose(f);
 }
 
