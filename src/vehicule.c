@@ -172,6 +172,10 @@ int isVehiculeDevant(COORDONEE coord, char direction, VEHICULE* vehicule, int nb
     // Distance de sécurité
     int distance_check = 6;
 
+    if (vehicule->type == 'c') {
+        distance_check = 8;
+    }
+
     DIMENSIONS dim_actuel = getDimensionsVehicule(direction);
 
     // Calcul zone occupée par le véhicule

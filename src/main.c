@@ -256,7 +256,7 @@ void afficherTemps() {
     int temps = time(NULL) - chronometre;
 
     attron(COLOR_PAIR(2));
-    mvprintw(5, 107, "Temps: %02lu:%02lu", temps / 60, temps % 60);
+    mvprintw(5, 107, "Temps: %02d:%02d", temps / 60, temps % 60);
     attroff(COLOR_PAIR(2));
     refresh();
 }
@@ -459,6 +459,8 @@ int main() {
     //l’Unicode (wchar_t)
     setlocale(LC_ALL, "");
 
+    system("clear");
+
     //lancer_musique();
 
     srand(time(NULL));
@@ -469,17 +471,26 @@ int main() {
     printf("\n\n\n\n");
     afficherFichier("assets/logo.txt");
 
+    printf("\033[1;37m");  // Blanc
+
     printf("★ Regle du jeu ★\n");
     printf("Jeu permettant de simuler le stationnement de voitures dans un parking payant\n\n\n\n");
-    printf("Mode Parking ON : vitesse plafonnée à 3 px/s.\n");
+
+    printf("\033[4;31m");// Rouge souligné
+    printf("Mode Parking ON :");
+    printf("\033[0m"); //RESET
+    printf("\033[1;31m");  // Rouge
+    printf(" vitesse plafonnée à 3 px/s.\n");
     printf("Même à fond, votre véhicule refuse d’obéir… et c’est voulu\n\n\n\n");
 
+    printf("\033[4;37m");  // Blanc souligne
     printf("Pour commencer veuillez choisir votre mode de jeu :\n");
     printf("[1] Entrainement : mode facile.\n");
     printf("[2] Entrainement : mode difficle.\n");
     printf("[3] Fluide : trafic léger, se garer devient un jeu d’enfant !\n");
     printf("[4] Chargé : beaucoup de véhicules… attention aux bouchons !\n\n\n\n");
-
+    printf("\033[0m"); // RESET
+    printf("\033[1;37m");  // Blanc
 
     while (1) {
         int mode;
@@ -613,9 +624,20 @@ int main() {
 
         int temps = time(NULL) - chronometre;
 
-        printf("\n\nVous avez passé un temps totale de %02d:%02d\n", temps / 60, temps % 60);
-        printf("Vous devez régler %02d,%02d€\n", gain_save / 100, gain_save % 100);
-        printf("\n\nMerci d'avoir joué à Take IT !\n");
+        printf("\n\nVous avez passé un temps totale de \033[1;35m%02d:%02d\033[0m\n", temps / 60, temps % 60);
+
+        printf("\033[1;37m");  // Blanc
+        printf("Vous devez régler \033[1;35m%02d,%02d€\033[0m\n", gain_save / 100, gain_save % 100);
+
+        printf("\033[1;37m");  // Blanc
+        printf("\n\nMerci d'avoir joué à ");
+
+        printf("\033[4;31m");// Rouge souligné
+        printf("VROU.vroumm");
+
+        printf("\033[0m"); // RESET
+        printf("\033[1;37m");  // Blanc souligne
+        printf(" !\n\n\n\n");
 
         // on desaloue l'espace mémoire de notre tableau dynamique
         free(tab_vehicules);
