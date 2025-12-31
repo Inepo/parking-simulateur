@@ -626,10 +626,15 @@ int main() {
 
         //Ferme le mode ncurses pour remettre le terminal normalement
         endwin();
+
+        /* Reset écran */
+        printf("\033[2J");   // clear
+        printf("\033[H");    // cursor
+        fflush(stdout);
+
         echo();
         nocbreak();
         curs_set(1);
-        fflush(stdout);
 
         int temps = time(NULL) - chronometre;
 
