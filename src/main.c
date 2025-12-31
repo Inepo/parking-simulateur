@@ -34,7 +34,7 @@ VEHICULE *tab_vehicules;
 
 
 void lancer_musique() {
-    system("play -q assets/ost_ft.wav > /dev/null 2>&1 &");
+    system("aplay -q assets/ost_ft.wav > /dev/null 2>&1 &");
 
 }
 
@@ -43,8 +43,7 @@ void arreter_musique() {
 }
 
 void klaxon() {
-    system("play -q assets/klaxon.wav > /dev/null 2>&1 &");
-
+    system("aplay -q assets/klaxon.wav > /dev/null 2>&1 &");
 }
 
 
@@ -473,7 +472,7 @@ int main() {
     // Charger le plan
     chargerParking();
 
-    printf("\n\n\n\n");
+    printf("\n");
     afficherFichier("assets/logo.txt");
 
     printf("\033[1;37m");  // Blanc
