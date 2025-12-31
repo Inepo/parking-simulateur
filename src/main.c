@@ -16,6 +16,13 @@
 #include "../library/configuration.h"
 
 
+#ifdef __APPLE__
+    #define SLEEP_TIME 70000
+#else
+    #define SLEEP_TIME 100000
+#endif
+
+
 wchar_t plan[HAUTEUR][LARGEUR];
 
 int nb_vehicules;
@@ -616,7 +623,7 @@ int main() {
             afficherTemps();
 
 
-            usleep(70000);
+            usleep(SLEEP_TIME);
         }
 
         //Ferme le mode ncurses pour remettre le terminal normalement
