@@ -46,16 +46,17 @@ void afficherFichier(const char* fichier) {
         exit(1);
     }
 
-    // Utilise wprintf au lieu de printf pour la couleur
-    wprintf(L"\033[1;31m");
+    printf("\033[1;31m");
+    fflush(stdout);
 
-    wint_t wc;
-    while ((wc = fgetwc(f)) != WEOF)
+    // Lire ligne par ligne avec fgetws
+    wchar_t ligne[1024];
+    while (fgetws(ligne, 1024, f) != NULL)
     {
-        putwchar(wc);
+        wprintf(L"%ls", ligne);
     }
 
-    wprintf(L"\n\033[0m");
+    printf("\033[0m\n");
     fclose(f);
 }
 
