@@ -47,13 +47,11 @@ void afficherFichier(const char* fichier) {
     }
 
     printf("\033[1;31m");
-    fflush(stdout);
 
-    // Lire ligne par ligne avec fgetws
-    wchar_t ligne[1024];
-    while (fgetws(ligne, 1024, f) != NULL)
-    {
-        wprintf(L"%ls", ligne);
+    // Lire en mode binaire caractère par caractère
+    int c;
+    while ((c = fgetc(f)) != EOF) {
+        putchar(c);
     }
 
     printf("\033[0m\n");
