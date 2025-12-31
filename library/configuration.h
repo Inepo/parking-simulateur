@@ -6,13 +6,6 @@
 #define STP_CONFIGURATION_H
 #include "vehicule.h"
 
-typedef enum {
-    MANUELLE_COLLISION = 0,
-    MANUELLE_SANS_COLLISION = 1,
-    FLUIDE = 2,
-    CHARGE = 3
-} MODE_JEU;
-
 char getToucheViaDirection(char direction);
 char getDirectionOppose(char direction);
 void afficherFichier(const char* fichier);

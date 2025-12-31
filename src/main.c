@@ -14,6 +14,7 @@
 
 #include "../library/vehicule.h"
 #include "../library/configuration.h"
+#include "../library/jeu.h"
 
 
 wchar_t plan[HAUTEUR][LARGEUR];
@@ -32,11 +33,14 @@ MODE_JEU modeJeu;
 
 VEHICULE *tab_vehicules;
 
+VEHICULE *joueur;
+
+int payeJoueur = 0;
 
 
 
 void lancer_musique() {
-    system("play -q assets/ost_ft.wav &");
+    system("play -q -v 0.5 assets/ost_ft.wav &");
 
 }
 
@@ -45,11 +49,11 @@ void arreter_musique() {
 }
 
 void klaxon() {
-    system("play -q assets/klaxon.wav &");
+    system("play -q -v 0.5 assets/klaxon.wav &");
 }
 
 void gameOver() {
-    system("play -q assets/gameover.wav &");
+    system("play -q -v 0.5 assets/gameover.wav &");
 }
 
 
@@ -117,9 +121,10 @@ void afficherParking()
 
 // 0 -> collision detecté et pas de mouvement
 // 1 -> collision detécté et mouvement
-int deplacer(VEHICULE* vehiculeCourant, bool modeAuto, int *running) {
-    if (!modeAuto)
+int deplacer(VEHICULE* vehiculeCourant, int *running) {
+    if (modeJeu == MANUELLE_COLLISION || modeJeu == MANUELLE_SANS_COLLISION || (vehiculeCourant->mode == 'S'))
     {
+        int collision = vehiculeCourant->mode == 'S' || avec_collision;
         // Vérifier les touches
         char touche = key_pressed();
             if (touche != 0) {
@@ -128,7 +133,7 @@ int deplacer(VEHICULE* vehiculeCourant, bool modeAuto, int *running) {
                     case 'q':
                     case 's':
                     case 'd':
-                        return deplacerVehicule(touche, vehiculeCourant, avec_collision, plan, nb_vehicules, tab_vehicules);
+                        return deplacerVehicule(touche, vehiculeCourant, collision, plan, nb_vehicules, tab_vehicules);
                     case 'p':
                         klaxon();
                         break;
@@ -282,6 +287,9 @@ void afficherGain()
     unsigned long int prix = 0;
 
     for (int p = 0; p < nb_vehicules; ++p) {
+        if (tab_vehicules[p].mode == 'S') {
+            payeJoueur = tab_vehicules[p].tps * 2;
+        }
         prix = prix + (tab_vehicules[p].tps * 2);
     }
 
@@ -451,6 +459,66 @@ void parametreModeJeu()
                 chargerVehicule(&tab_vehicules[indexVehicule]);
             }
             break;
+
+        case 4:
+            avec_collision = 0;
+
+            nb_vehicules = 6;
+
+            tab_vehicules = malloc(nb_vehicules * sizeof(VEHICULE));
+
+            if (tab_vehicules == NULL) {
+                printf("Erreur: malloc\n");
+                exit(1);
+            }
+
+
+            for (int indexVehicule = 0; indexVehicule < nb_vehicules - 1; indexVehicule++)
+            {
+                vehicule.position.x = 86;
+                vehicule.position.y = 53;
+                vehicule.direction = 'O'; // Ouest <- vers la gauche
+                vehicule.mode = 'A'; // Manuelle
+                vehicule.statut = 'E'; // Entre dans le parking
+                vehicule.tps = 0;
+                vehicule.tps_stationnement = 0;
+                vehicule.ancienne_position.x = -1;
+                vehicule.ancienne_position.y = -1;
+                vehicule.phase_sortie = 0;
+                vehicule.nb_sans_bouger = 0;
+                vehicule.klaxon = false;
+
+                vehicule.start_time = chronometre + (indexVehicule * 2); // 0s pour la 1ère, 3s pour la 2e
+                vehicule.active = 0;
+                vehicule.type = types[rand() % 3];
+
+                //attribue aléatoirement un temps (entre 10 et 30 secondes) de stationnement
+                vehicule.tps_stationnement_alloue = 10 + rand() % 21;
+
+                tab_vehicules[indexVehicule] = vehicule;
+
+                chargerVehicule(&tab_vehicules[indexVehicule]);
+            }
+
+            vehicule.position.x = 86;
+            vehicule.position.y = 53;
+            vehicule.direction = 'O';
+            vehicule.mode = 'S'; //Manuelle et special
+            vehicule.statut = 'E'; //Entre dans le parking
+            vehicule.tps = 0;
+            vehicule.type = 'v'; //voiture
+            vehicule.nb_sans_bouger = 0;
+            vehicule.klaxon = false;
+
+            vehicule.start_time = chronometre + (nb_vehicules * 1.5);
+            vehicule.active = 0;
+
+            tab_vehicules[nb_vehicules - 1] = vehicule;
+
+            joueur = &tab_vehicules[nb_vehicules - 1];
+
+            chargerVehicule(&tab_vehicules[nb_vehicules - 1]);
+            break;
     }
 
     // cyan
@@ -465,6 +533,8 @@ void parametreModeJeu()
     init_pair(5, COLOR_GREEN, -1);
     //bleu
     init_pair(6, COLOR_BLUE, -1);
+    //Orange
+    init_pair(7, 159, COLOR_BLACK);
 }
 
 
@@ -502,6 +572,14 @@ void afficherInfoModeJeu() {
             mvprintw(13, 114, "le parking déborde !");
             mvprintw(14, 112, "Beaucoup de véhicules…");
             mvprintw(16, 111, "prépare-toi aux bouchons.");
+            break;
+        case 4:
+            mvprintw(11, 114, "Mode Spécial activé");
+            mvprintw(12, 123, "—");
+            mvprintw(13, 118, "Version BETA");
+            mvprintw(14, 111, "Conduis parmi les voitures");
+            mvprintw(15, 120, "autonomes !");
+            mvprintw(16, 110, "⚠ Fonctionnalité expérimentale");
             break;
     }
 
@@ -545,7 +623,9 @@ int main() {
     printf("[1] Entrainement — mode facile.\n");
     printf("[2] Entrainement — mode difficle.\n");
     printf("[3] Fluide — trafic léger, se garer devient un jeu d’enfant !\n");
-    printf("[4] Chargé — beaucoup de véhicules… attention aux bouchons !\n\n\n\n");
+    printf("[4] Chargé — beaucoup de véhicules… attention aux bouchons !\n");
+    printf("[5] Spécial — tu n’es plus seul... d’autres voitures roulent toutes seules !\n\n\n\n");
+
     printf("\033[0m"); // RESET
     printf("\033[1;37m");  // Blanc
 
@@ -571,6 +651,7 @@ int main() {
             case 2: modeJeu = MANUELLE_SANS_COLLISION; break;
             case 3: modeJeu = FLUIDE; break;
             case 4: modeJeu = CHARGE; break;
+            case 5: modeJeu = SPECIAL; break;
             default:
                 printf("Mode inconnu. Au revoir.\n");
                 return 0;
@@ -587,7 +668,7 @@ int main() {
 
         int running = 1;
 
-        bool modeAuto = (modeJeu == FLUIDE || modeJeu == CHARGE);
+        bool modeAuto = (modeJeu == FLUIDE || modeJeu == CHARGE || modeJeu == SPECIAL);
 
         while (running)
         {
@@ -623,8 +704,9 @@ int main() {
 
 
 
-                game_over = deplacer(vehiculeCourant, modeAuto, &running);
-                if (game_over == 1 && modeJeu == MANUELLE_SANS_COLLISION) {
+                game_over = deplacer(vehiculeCourant, &running);
+
+                if (game_over == 1 && (modeJeu == MANUELLE_SANS_COLLISION || modeJeu == SPECIAL)) {
                     running = 0;
                     break;
                 }
@@ -650,7 +732,7 @@ int main() {
                     libererVehicule(vehiculeCourant);
                 }
                 else {
-                    afficherVehicule(vehiculeCourant);
+                    afficherVehicule(vehiculeCourant, modeJeu);
                 }
 
 
@@ -665,6 +747,10 @@ int main() {
 
             if (!modeAuto) {
                 afficherInstructions(vehiculeCourant);
+            }
+
+            if (modeJeu == SPECIAL && joueur->active) {
+                afficherInstructions(joueur);
             }
 
             afficherTemps();
@@ -690,7 +776,7 @@ int main() {
 
         int temps = time(NULL) - chronometre;
 
-        if (game_over == 1 && modeJeu == MANUELLE_SANS_COLLISION) {
+        if (game_over == 1 && (modeJeu == MANUELLE_SANS_COLLISION || modeJeu == SPECIAL)) {
             arreter_musique();
             gameOver();
             printf("\n\n");
@@ -699,7 +785,18 @@ int main() {
             printf("Spoiler — les murs ne bougent pas. Toi si. Réessaie !");
             printf("\n\n\n");
             printf("\033[1;37m");  // Blanc
-            printf("Vous avez passé un temps totale de \033[1;35m%02d:%02d\033[0m\n", temps / 60, temps % 60);
+
+            if (modeJeu == MANUELLE_SANS_COLLISION) {
+                printf("Vous avez passé un temps totale de \033[1;35m%02d:%02d\033[0m\n", temps / 60, temps % 60);
+            }
+            else {
+                temps = joueur->tps;
+
+                printf("\033[1;37m");  // Blanc
+                printf("\n\nVous avez passé un temps totale de \033[1;35m%02d:%02d\033[0m\n", temps / 60, temps % 60);
+                printf("\033[1;37m");  // Blanc
+                printf("Vous devez régler \033[1;35m%02d,%02d€\033[0m\n", payeJoueur / 100, payeJoueur % 100);
+            }
         }
         else {
             printf("\033[1;37m");  // Blanc

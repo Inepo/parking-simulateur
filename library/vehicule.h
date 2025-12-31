@@ -4,6 +4,7 @@
 #include <time.h>
 #include <wchar.h>
 #include <ncurses.h>//pour l'affichage
+#include "jeu.h"
 
 #ifndef STP_VEHICULE_H
 #define STP_VEHICULE_H
@@ -49,7 +50,7 @@ typedef struct {
 int isToutVehiculeSorti(int nb_vehicules, VEHICULE *tab_vehicules);
 int isDansPlaceParking(VEHICULE *voiture, wchar_t plan[HAUTEUR][LARGEUR]);
 void chargerVehicule(VEHICULE *vehicule);
-void afficherVehicule(VEHICULE *v);
+void afficherVehicule(VEHICULE *v, MODE_JEU modeJeu);
 int deplacerVehicule(char direction, VEHICULE* vehicule, int avec_collision, wchar_t plan[HAUTEUR][LARGEUR], int nb_vehicules, VEHICULE* tab_vehicules);
 void deplacerMultiVehiculeAuto(VEHICULE *vehicule, int nb_vehicules, VEHICULE *tab_vehicules, wchar_t plan[HAUTEUR][LARGEUR]);
 int isPlaceOccupe(COORDONEE coord, char direction, int nb_vehicules, VEHICULE* tab_vehicules);

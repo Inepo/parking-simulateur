@@ -7,4 +7,5 @@ add_executable(stp src/main.c
         library/vehicule.h
         library/configuration.h
         src/vehicule.c
-        src/configuration.c)
+        src/configuration.c
+        library/jeu.h)

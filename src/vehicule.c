@@ -188,6 +188,10 @@ int isVehiculeDevant(COORDONEE coord, char direction, VEHICULE* vehicule, int nb
         distance_check = 10;
     }
 
+    if (vehicule->mode == 'S') {
+        distance_check = 2;
+    }
+
     DIMENSIONS dim_actuel = getDimensionsVehicule(direction);
 
     // Calcul zone occupée par le véhicule
@@ -261,7 +265,7 @@ int isVehiculeDevant(COORDONEE coord, char direction, VEHICULE* vehicule, int nb
 }
 
 // Afficher un véhicule sur la console
-void afficherVehicule(VEHICULE *v)
+void afficherVehicule(VEHICULE *v, MODE_JEU modeJeu)
 {
     DIMENSIONS dim = getDimensionsVehicule(v->direction);
     int x = v->position.x - dim.offset_x;
@@ -270,6 +274,9 @@ void afficherVehicule(VEHICULE *v)
     // Couleur selon le type
     if (v->klaxon) {
         attron(COLOR_PAIR(2)); // Jaune pour le klaxonneur
+    }
+    else if (v->mode == 'S') {
+        attron(COLOR_PAIR(7));
     }
     else if (v->type == 'v') attron(COLOR_PAIR(3)); // Rouge pour voiture
     else if (v->type == 'c') attron(COLOR_PAIR(4)); // Magenta pour camion
@@ -285,6 +292,9 @@ void afficherVehicule(VEHICULE *v)
 
     if (v->klaxon) {
         attroff(COLOR_PAIR(2));
+    }
+    else if (v->type == 'v' && v->mode == 'M' && modeJeu == SPECIAL) {
+        attroff(COLOR_PAIR(7));
     }
     else if (v->type == 'v') attroff(COLOR_PAIR(3));
     else if (v->type == 'v') attroff(COLOR_PAIR(4));
