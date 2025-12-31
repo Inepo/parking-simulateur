@@ -39,7 +39,7 @@ void lancer_musique() {
 }
 
 void arreter_musique() {
-    system("pkill -f 'ost_ft.wav'");
+    system("pkill play > /dev/null 2>&1");
 }
 
 void klaxon() {
@@ -626,6 +626,10 @@ int main() {
 
         //Ferme le mode ncurses pour remettre le terminal normalement
         endwin();
+        echo();
+        nocbreak();
+        curs_set(1);
+        fflush(stdout);
 
         int temps = time(NULL) - chronometre;
 
