@@ -177,6 +177,7 @@ void chargerVehicule(VEHICULE *vehicule)
     fclose(f);
 }
 
+
 // Verifier s'il y a un vehicule juste devant
 int isVehiculeDevant(COORDONEE coord, char direction, VEHICULE* vehicule, int nb_vehicules, VEHICULE* tab_vehicules) {
 
@@ -184,7 +185,7 @@ int isVehiculeDevant(COORDONEE coord, char direction, VEHICULE* vehicule, int nb
     int distance_check = 6;
 
     if (vehicule->type == 'c') {
-        distance_check = 8;
+        distance_check = 10;
     }
 
     DIMENSIONS dim_actuel = getDimensionsVehicule(direction);
@@ -197,9 +198,9 @@ int isVehiculeDevant(COORDONEE coord, char direction, VEHICULE* vehicule, int nb
     for (int i = 0; i < nb_vehicules; i++) {
         VEHICULE *autre = &tab_vehicules[i];
 
-        if (autre->direction == getDirectionOppose(vehicule->direction)) {
+        /*if (autre->direction == getDirectionOppose(vehicule->direction)) {
             distance_check = 3;
-        }
+        }*/
 
         if (!autre->active || autre == vehicule) continue;
 
@@ -267,7 +268,8 @@ void afficherVehicule(VEHICULE *v)
     int y = v->position.y - dim.offset_y;
 
     // Couleur selon le type
-    if (v->type == 'v') attron(COLOR_PAIR(3)); // Rouge pour voiture
+    if (v->klaxon) attron(COLOR_PAIR(2)); // Jaune pour le klaxonneur
+    else if (v->type == 'v') attron(COLOR_PAIR(3)); // Rouge pour voiture
     else if (v->type == 'c') attron(COLOR_PAIR(4)); // Magenta pour camion
     else if (v->type == 'm') attron(COLOR_PAIR(6)); // Bleu pour moto
 
@@ -279,7 +281,11 @@ void afficherVehicule(VEHICULE *v)
         }
     }
 
-    if (v->type == 'v') attroff(COLOR_PAIR(3));
+    if (v->klaxon) attroff(COLOR_PAIR(2));
+    else if (v->type == 'v') attroff(COLOR_PAIR(3));
+    else if (v->type == 'v') attroff(COLOR_PAIR(4));
+    else if (v->type == 'v') attroff(COLOR_PAIR(6));
+
 }
 
 
@@ -456,7 +462,6 @@ void deplacerMultiVehiculeAuto(VEHICULE *vehicule, int nb_vehicules, VEHICULE *t
 
     bool doit_changer = ((vehicule->count_meme_direction <= 6 && ancienne_direction == 'N') || !peut_continuer);
 
-
     if (doit_changer) {
 
         new_x = vehicule->position.x;
@@ -506,6 +511,7 @@ void deplacerMultiVehiculeAuto(VEHICULE *vehicule, int nb_vehicules, VEHICULE *t
                     new_y = test_y;
                     nouvelle_direction = dir;
                     direction_trouvee = true;
+                    vehicule->klaxon = false;
                 }
             }
             else if (!isCollision(coord, dir, vehicule, plan, nb_vehicules, tab_vehicules)) {
@@ -513,16 +519,19 @@ void deplacerMultiVehiculeAuto(VEHICULE *vehicule, int nb_vehicules, VEHICULE *t
                 new_y = test_y;
                 nouvelle_direction = dir;
                 direction_trouvee = true;
+                vehicule->klaxon = false;
             }
         }
 
         // Phase 2 : Si vraiment bloqué pendant 25 tours, essayer même la direction opposée
         if (vehicule->nb_sans_bouger >= 18 && !direction_trouvee) {
+            vehicule->klaxon = true;
             klaxonMultiple();
         }
 
 
         if (vehicule->nb_sans_bouger == 30 && !direction_trouvee) {
+            vehicule->klaxon = false;
             int test_x = vehicule->position.x;
             int test_y = vehicule->position.y;
 

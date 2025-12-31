@@ -48,6 +48,10 @@ void klaxon() {
     system("play -q assets/klaxon.wav &");
 }
 
+void gameOver() {
+    system("play -q assets/gameover.wav &");
+}
+
 
 
 // Charger le plan depuis un fichier
@@ -326,6 +330,7 @@ void parametreModeJeu()
             vehicule.tps = 0;
             vehicule.type = 'v'; //voiture
             vehicule.count_meme_direction = 0;
+            vehicule.klaxon = false;
 
             nb_vehicules = 1;
 
@@ -352,6 +357,7 @@ void parametreModeJeu()
             vehicule.tps = 0;
             vehicule.type = 'v'; //voiture
             vehicule.nb_sans_bouger = 0;
+            vehicule.klaxon = false;
 
             nb_vehicules = 1;
 
@@ -395,6 +401,7 @@ void parametreModeJeu()
                 vehicule.active = 0;
                 vehicule.type = types[rand() % 3];
                 vehicule.nb_sans_bouger = 0;
+                vehicule.klaxon = false;
 
                 //attribue aléatoirement un temps (entre 10 et 30 secondes) de stationnement
                 vehicule.tps_stationnement_alloue = 10 + rand() % 21;
@@ -430,6 +437,7 @@ void parametreModeJeu()
                 vehicule.ancienne_position.y = -1;
                 vehicule.phase_sortie = 0;
                 vehicule.nb_sans_bouger = 0;
+                vehicule.klaxon = false;
 
                 vehicule.start_time = chronometre + (indexVehicule * 2); // 0s pour la 1ère, 3s pour la 2e
                 vehicule.active = 0;
@@ -641,6 +649,8 @@ int main() {
         int temps = time(NULL) - chronometre;
 
         if (game_over == 1 && modeJeu == MANUELLE_SANS_COLLISION) {
+            arreter_musique();
+            gameOver();
             printf("\n\n");
             afficherFichier("assets/game_over.txt");
             printf("\033[1;31m");// Rouge souligné

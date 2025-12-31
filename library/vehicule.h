@@ -36,6 +36,7 @@ typedef struct voiture {
     unsigned long start_time;  // timestamp de départ
     int active;                // 0 = pas encore lancée, 1 = en cours
     int nb_sans_bouger;         //nombre de fois que le vehicule n'a pas bougé pour eviter les demi tour inutile
+    bool klaxon;
 }VEHICULE;
 
 typedef struct {
