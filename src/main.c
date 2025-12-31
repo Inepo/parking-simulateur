@@ -622,6 +622,7 @@ int main() {
 
             afficherTemps();
 
+            refresh();
 
             usleep(SLEEP_TIME);
         }
