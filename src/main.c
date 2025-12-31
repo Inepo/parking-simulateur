@@ -632,10 +632,6 @@ int main() {
         printf("\033[H");    // cursor
         fflush(stdout);
 
-        echo();
-        nocbreak();
-        curs_set(1);
-
         int temps = time(NULL) - chronometre;
 
         printf("\n\nVous avez passé un temps totale de \033[1;35m%02d:%02d\033[0m\n", temps / 60, temps % 60);
