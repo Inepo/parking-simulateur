@@ -39,7 +39,7 @@ void lancer_musique() {
 }
 
 void arreter_musique() {
-    system("pkill play > /dev/null 2>&1");
+    system("pkill -f 'ost_ft.wav'");
 }
 
 void klaxon() {

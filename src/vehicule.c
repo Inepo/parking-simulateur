@@ -107,7 +107,7 @@ void klaxonMultiple() {
         return;  // Le son est déjà en train de jouer
     }
 
-    system("aplay -q assets/klaxonBouchon.wav &");
+    system("play -q assets/klaxonBouchon.wav &");
 }
 
 // Creation de vehicule
