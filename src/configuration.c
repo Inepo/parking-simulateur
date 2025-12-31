@@ -8,6 +8,11 @@
 #include <termios.h>
 #include <wchar.h>
 #include <fcntl.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <locale.h>
+#include <wchar.h>
+#include <time.h>
 
 #ifdef __APPLE__
     #include <ncurses.h>
@@ -35,6 +40,8 @@ char getDirectionOppose(char direction) {
 
 // affichage d'un fichier texte sur la console, notamment le logo
 void afficherFichier(const char* fichier) {
+    setlocale(LC_ALL, "fr_FR.UTF-8");
+
     FILE *f = fopen(fichier, "r");
     if (!f) {
         printf("Erreur: impossible d'ouvrir %s\n", fichier);

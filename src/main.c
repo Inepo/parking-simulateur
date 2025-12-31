@@ -605,13 +605,6 @@ int main() {
                     sortirPlaceParking(vehiculeCourant,avec_collision,plan,nb_vehicules,vehiculeCourant);
                 }
 
-
-                if (isToutVehiculeSorti(nb_vehicules, tab_vehicules))
-                {
-                    running = 0;
-                    break;
-                }
-
             }
 
             afficherGainMulti();
@@ -625,6 +618,12 @@ int main() {
             refresh();
 
             usleep(SLEEP_TIME);
+
+            if (isToutVehiculeSorti(nb_vehicules, tab_vehicules))
+            {
+                running = 0;
+                break;
+            }
         }
 
         //Ferme le mode ncurses pour remettre le terminal normalement
