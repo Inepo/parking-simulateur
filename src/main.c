@@ -759,7 +759,7 @@ int main() {
 
             usleep(70000);
 
-            if (isToutVehiculeSorti(nb_vehicules, tab_vehicules))
+            if (nb_vehicules == 0)
             {
                 running = 0;
                 break;
@@ -780,7 +780,9 @@ int main() {
             arreter_musique();
             gameOver();
             printf("\n\n");
+
             afficherFichier("assets/game_over.txt");
+
             printf("\033[1;31m");// Rouge souligné
             printf("Spoiler — les murs ne bougent pas. Toi si. Réessaie !");
             printf("\n\n\n");
