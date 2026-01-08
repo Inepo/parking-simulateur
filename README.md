@@ -1,4 +1,12 @@
 # Projet C
+# Sujet avancé - Simulation de parking
+
+Groupe : TD36
+
+Binome : 
+Ines KADJI
+Serghei GONCEAR 
+
 
 ☞ Etape pour executer
 
